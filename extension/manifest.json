@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Easynews",
+  "version": "0.1.0",
+  "description": "뉴스 원문을 읽으며 선택한 문장을 이해하는 리딩 어시스턴트",
+  "minimum_chrome_version": "116",
+  "permissions": ["activeTab", "scripting", "sidePanel", "storage"],
+  "action": { "default_title": "Easynews에서 선택한 내용 보기" },
+  "background": { "service_worker": "background.js" },
+  "side_panel": { "default_path": "sidepanel.html" },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": { "default": "Alt+Shift+E" },
+      "description": "현재 탭에서 Easynews 열기"
+    }
+  }
+}

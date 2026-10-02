@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Easynews</title>
+    <link rel="stylesheet" href="sidepanel.css">
+    <script src="sidepanel.js" defer></script>
+  </head>
+  <body>
+    <header><span class="eyebrow">뉴스 리딩 어시스턴트</span><h1>Easynews<span class="brand-dot">.</span></h1><p>직접 읽고, 궁금한 문장을 골라 보세요.</p></header>
+    <main>
+      <section class="page-card" aria-labelledby="page-title">
+        <span class="eyebrow">읽고 있는 페이지</span>
+        <h2 id="page-title">현재 페이지</h2>
+        <a id="page-url" target="_blank" rel="noopener noreferrer" hidden></a>
+      </section>
+      <div class="status-row"><p id="status" role="status" aria-live="polite"></p><button id="refresh" type="button">다시 확인</button></div>
+      <section aria-labelledby="selection-title">
+        <h2 id="selection-title">선택한 내용</h2>
+        <blockquote id="selected-text">기사에서 이해하기 어려운 문장을 선택해 주세요.</blockquote>
+        <p id="selection-count" class="caption"></p>
+      </section>
+      <section class="next-step" aria-labelledby="explain-title">
+        <h2 id="explain-title">문장 이해하기</h2>
+        <div class="explain-actions"><button disabled>쉽게 설명</button><button disabled>왜 그런가</button><button disabled>배경 설명</button></div>
+        <p class="caption">AI 설명은 다음 단계에서 제공됩니다.</p>
+      </section>
+    </main>
+    <footer>Easynews는 뉴스 원문을 직접 읽는 일을 돕습니다.</footer>
+  </body>
+</html>

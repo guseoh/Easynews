@@ -1,0 +1,12 @@
+{
+  "name": "easynews",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["extension"],
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "npm run build --workspace extension",
+    "typecheck": "npm run typecheck --workspace extension",
+    "test": "npm run test --workspace extension"
+  }
+}
