@@ -1,3 +1,4 @@
+import { CHATGPT_MESSAGES } from './chatgpt-connection';
 export const MAX_EXPLAIN_SELECTION = 2_000;
 export const MAX_EXPLAIN_TITLE = 300;
 export const MAX_EXPLAIN_ANSWER = 8_000;
@@ -25,6 +26,7 @@ export async function requestExplanation(
       && value.error && typeof value.error === 'object' && 'code' in value.error ? value.error.code : '';
     // Use our own messages; never display arbitrary upstream or server error text.
     const messages: Record<string, string> = {
+      ...CHATGPT_MESSAGES,
       SERVER_NOT_CONFIGURED: '로컬 서버의 API 키와 확장 ID를 설정해 주세요.',
       LLM_CONFIGURATION_ERROR: '서버의 API 키와 모델 접근 권한을 확인해 주세요.',
       FORBIDDEN_CLIENT: '서버에 설정한 Easynews 확장 ID를 확인해 주세요.',

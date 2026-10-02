@@ -1,0 +1,34 @@
+{
+  "name": "@siwc/local",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node ../../server/scripts/copy-siwc-notices.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test test/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "jose": "^6.1.0",
+    "proper-lockfile": "^4.1.2"
+  },
+  "devDependencies": {
+    "@types/proper-lockfile": "^4.1.4"
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "easynewsModificationNotice": "2026-10-02: build path and test script adapted for Easynews workspace; source and upstream tests unchanged. Distributed under the original DevKit license."
+}

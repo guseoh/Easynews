@@ -1,6 +1,7 @@
 import { stateKey, type TabState } from './state';
 import { ExplanationSession, MAX_EXPLAIN_SELECTION, requestExplanation, type ExplainMode } from './explanation';
 import { requestRelated, WARNING_MESSAGES, type RelatedArticle } from './related-news';
+import { mountChatGPTConnection } from './chatgpt-connection';
 
 const title = document.querySelector<HTMLHeadingElement>('#page-title')!;
 const url = document.querySelector<HTMLAnchorElement>('#page-url')!;
@@ -28,6 +29,12 @@ let lastMode: ExplainMode | undefined;
 let revision = 0;
 let port: chrome.runtime.Port | undefined;
 let closed = false;
+let aiEnabled = true;
+const aiConnection = mountChatGPTConnection((enabled, invalidate) => {
+  aiEnabled = enabled;
+  if (invalidate) { clearExplanation(); clearRelated(); }
+  updateButtons();
+});
 
 async function connect() {
   try {
@@ -52,12 +59,12 @@ function canExplain() {
 }
 
 function updateButtons() {
-  for (const button of explainButtons) button.disabled = busy || !canExplain();
-  retry.disabled = busy || !canExplain();
+  for (const button of explainButtons) button.disabled = busy || !canExplain() || !aiEnabled;
+  retry.disabled = busy || !canExplain() || !aiEnabled;
   const article = currentState?.page?.article;
   const canRelate = currentState?.status === 'ready' && article?.confidence !== 'low' && (article?.textContent?.trim().length || 0) >= 80;
-  relatedButton.disabled = relatedBusy || !canRelate;
-  relatedRetry.disabled = relatedBusy || !canRelate;
+  relatedButton.disabled = relatedBusy || !canRelate || !aiEnabled;
+  relatedRetry.disabled = relatedBusy || !canRelate || !aiEnabled;
 }
 
 function clearExplanation() {
@@ -112,6 +119,7 @@ async function findRelated() {
       : error instanceof DOMException && error.name === 'TimeoutError' ? '관련 뉴스 요청 시간이 초과됐습니다. 다시 시도해 주세요.'
       : error instanceof Error ? error.message : '관련 뉴스를 가져오지 못했습니다.';
     relatedRetry.hidden = false; updateButtons();
+    aiConnection.refresh();
   }
 }
 
@@ -148,7 +156,7 @@ function render(state?: TabState, key = '') {
 }
 
 async function explain(mode: ExplainMode) {
-  if (closed || busy || !canExplain() || !currentState?.page) return;
+  if (closed || busy || !aiEnabled || !canExplain() || !currentState?.page) return;
   const selection = { title: currentState.page.title, selectedText: currentState.page.selectedText,
     surroundingContext: currentState.page.article?.confidence === 'low' ? undefined : currentState.page.article?.surroundingContext };
   busy = true;
@@ -171,6 +179,7 @@ async function explain(mode: ExplainMode) {
       : error instanceof Error ? error.message : '설명을 가져오지 못했습니다. 다시 시도해 주세요.';
     retry.hidden = false;
     updateButtons();
+    aiConnection.refresh();
   }
 }
 

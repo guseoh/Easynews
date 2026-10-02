@@ -26,7 +26,7 @@ Easynews는 현재 기사의 이해와 다음 기사 탐색을 돕습니다. 기
 
 설명 버튼을 누를 때만 패널에서 `POST http://127.0.0.1:3000/api/explain`을 호출합니다. 입력은 `mode`(`simple`, `why`, `background`), `selectedText`(1~2,000자), `articleTitle`(선택, 최대 300자), Phase 3의 선택적 `surroundingContext`(최대 1,600자)입니다. 기사 URL·전문·도입부는 보내지 않습니다. 낮은 문맥 신뢰도는 주변 문맥도 제외합니다. 응답은 `{ "answer": "..." }`이며 실패하면 `{ "error": { "code": "...", "message": "..." } }`를 반환합니다.
 
-서버는 Node.js의 `http`와 `fetch`만 사용하며 `127.0.0.1`에 바인딩합니다. 설정한 확장 ID·Origin과 루프백 Host만 허용하고 JSON 크기를 제한합니다. API 키는 서버 환경변수에만 있습니다. 요청·답변 로그, DB, 파일 저장, 캐시, 대화 이력은 두지 않습니다. 잘못된 필드·본문 전달 요청은 LLM 호출 전에 거부합니다.
+서버는 Node.js의 `http`·`fetch`와 공식 SIWC DevKit을 사용하며 `127.0.0.1`에 바인딩합니다. 설정한 확장 ID·Origin과 루프백 Host만 허용하고 JSON 크기를 제한합니다. API Key는 해당 Provider를 선택할 때 서버 환경변수에만 있습니다. 뉴스 요청·답변 로그, DB, 파일 저장, 캐시, 대화 이력은 두지 않습니다. OAuth 연결 정보의 보호 저장소는 아래 설명처럼 분리합니다. 잘못된 필드·본문 전달 요청은 LLM 호출 전에 거부합니다.
 
 OpenAI Responses API는 `store: false`, 제한된 출력 길이, 별도 세 모드 지시문을 사용합니다. 선택 내용 속 명령을 데이터로 취급하고 전체 기사 요약·노트 대필을 하지 않도록 지시합니다. 이 지시문만으로 실제 답변 품질을 보장하지 않으며 실뉴스 QA가 필요합니다. 타임아웃·rate limit·거부·불완전 응답을 검증하고 공급자의 원본 오류를 노출하지 않습니다.
 
@@ -42,11 +42,19 @@ Readability는 clone DOM에서만 실행합니다. metadata와 공통 article �
 
 관련 뉴스 버튼에서 `POST /api/related`를 명시 호출합니다. 제목·URL/canonical·출처·시각·최대 1,200자 도입부만 받으며 선택 문장·전문·history를 받지 않습니다. Event Fingerprint → 최대 3회 NAVER 검색 → HTML/metadata 정규화 → URL/제목 중복·현재 기사 제외 → 상수 기반 점수 → 상위 12개 → 관계 판정 → 시간 검증 → 출처 제한 → 두 그룹의 순서입니다.
 
-OpenAI 설정이 있으면 strict JSON schema와 runtime validation으로 fingerprint·후속/배경/related/irrelevant를 판정합니다. 설정이 없거나 실패하면 보수적 fallback과 안내를 제공합니다. 과거·같은 시각·unknown을 후속으로 표시하지 않고, 날짜만 있는 값도 시각 미확인으로 처리합니다. 그룹별 최대 4개·출처당 최대 2개이며 빈 그룹을 억지로 채우지 않습니다. 결과는 제목·출처 hostname·원문 링크·시각·최대 180자 관계 이유뿐입니다. 검색 description은 후보 판정에만 쓰고 반환하지 않습니다.
+AI Provider가 fingerprint·후속/배경/related/irrelevant를 판정하고 동일한 runtime validation을 적용합니다. API Key 경로는 strict JSON schema를 사용하며 plan 경로는 공식 SDK 인터페이스에 맞춰 schema 지시문을 사용합니다. 일반 AI 호출 실패는 보수적 fallback을 제공하고 plan 인증·권한·한도·보호 저장소 오류는 직접 안내합니다. 과거·같은 시각·unknown을 후속으로 표시하지 않고, 날짜만 있는 값도 시각 미확인으로 처리합니다. 그룹별 최대 4개·출처당 최대 2개이며 빈 그룹을 억지로 채우지 않습니다. 결과는 제목·출처 hostname·원문 링크·시각·최대 180자 관계 이유뿐입니다. 검색 description은 후보 판정에만 쓰고 반환하지 않습니다.
 
 검색 provider는 서버 환경변수로만 인증합니다. 외부 기사 원문을 서버에서 다시 가져오지 않으며 캐시·DB·파일·읽기 이력은 없습니다. 요청 종료 후 fingerprint·후보·판정을 보관하지 않습니다. 결과는 패널 메모리·DOM에만 두고 기사·탭 이동·패널 종료 시 취소·제거합니다. 설명 오류와 관련 검색 오류 상태는 독립적입니다.
 
 향후 캐시가 필요해도 최소 메타데이터와 짧은 TTL만 사용하고 원문 본문은 보관하지 않습니다. 설명·탐색 결과를 장기 저장하거나 사용자 학습 이력으로 축적하지 않습니다.
+
+## Sign in with ChatGPT 연결
+
+`AiProvider`는 기존 API Key Provider와 ChatGPTPlanProvider를 분리합니다. 실제 Plus/Pro E2E 성공 전까지 기본값은 API Key이며, `AI_PROVIDER=chatgpt-plan`으로 API Key 없이 선택할 수 있습니다. 공급자 오류로 과금 경로를 자동 변경하지 않습니다.
+
+공식 `@siwc/local`이 dynamic registration·fresh state/nonce/PKCE·loopback callback·서명 검증·granted scope·refresh serialization·revocation을 담당합니다. 호스트 ID는 별도 UUID metadata이며 issued client ID·계정·credential은 Windows DPAPI CurrentUser로 암호화된 SDK 저장소에 둡니다. 패널은 토큰을 받지 않고 연결 상태·제한된 계정 표시만 받습니다. OAuth credential과 뉴스 임시 데이터는 분리하며 보호 저장소 실패 시 평문 fallback을 사용하지 않습니다.
+
+plan 모델은 공식 계정 카탈로그에서 선택합니다. HTTP Responses 요청은 배열 input, instructions, store:false, stream:true만 사용하며 completed까지 SSE를 누적한 뒤 기존 JSON 계약으로 반환합니다. 한도 오류는 Manage usage로 연결하고 새 plan 요청을 차단합니다. 연결 변경·해제는 진행 요청과 패널 응답을 정리합니다. 상세 contract·라이선스·검증 및 미실행 실제 QA는 [SIWC QA](siwc-qa.md)를 참조하세요.
 
 ## 공식 API 근거
 

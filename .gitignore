@@ -1,6 +1,7 @@
 node_modules/
 extension/dist/
 server/dist/
+vendor/siwc-local/dist/
 .env
 .env.*
 !.env.example

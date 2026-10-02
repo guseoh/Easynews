@@ -4,7 +4,7 @@
 
 **Easynews는 기사 원문을 저장·재배포하지 않고, 사용자가 현재 읽고 있는 기사에서 요청한 최소한의 텍스트만 일시적으로 처리합니다. 관련 뉴스는 제목·출처·링크 중심으로 제공하고 원문은 항상 언론사 페이지에서 읽도록 합니다.**
 
-**Phase 1 — Extension Foundation**, **Phase 2 — AI Explanation**, **Phase 3 — Article Context**, **Phase 4 — Related News**를 구현했습니다. 최신 사용자 안내에 따라 실제 OpenAI API E2E QA는 크레딧 미충전으로 보류합니다. 자동 검증·Chrome fixture 결과와 실제 환경의 미검증 항목은 각 QA 문서에 구분합니다.
+**Phase 1 — Extension Foundation**, **Phase 2 — AI Explanation**, **Phase 3 — Article Context**, **Phase 4 — Related News**를 구현했습니다. 공식 **Sign in with ChatGPT + ChatGPT plan** 경로도 추가했으며 실제 Plus/Pro E2E는 아직 검증하지 않았습니다. 기본 Provider는 실제 plan E2E 성공 후 변경하기로 한 조건에 따라 API Key로 유지합니다. 자동 검증·Chrome fixture와 실제 환경 QA를 구분합니다.
 
 - Chrome Manifest V3 확장 및 Side Panel
 - 확장 아이콘 실행 시 현재 페이지 제목·URL 확인
@@ -19,7 +19,7 @@
 
 ## 라이선스
 
-Easynews 자체 소스 코드는 [MIT License](LICENSE)입니다. 타사 구성요소는 각자의 라이선스를 유지하며 [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES.md)를 참조하세요. 현재 프로젝트는 개인용·로컬·비상업 용도입니다. 검토 중인 OpenAI Sign in with ChatGPT DevKit에는 별도의 Noncommercial License가 적용됩니다. 향후 상업 제품으로 전환할 때 SIWC 서비스 조건과 DevKit 라이선스를 다시 검토해야 합니다. Easynews의 MIT 라이선스가 OpenAI 구성요소·상표의 사용 권한을 대신하지 않습니다.
+Easynews 자체 소스 코드는 [MIT License](LICENSE)입니다. 타사 구성요소는 각자의 라이선스를 유지하며 [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES.md)를 참조하세요. 현재 프로젝트는 개인용·로컬·비상업 용도입니다. OpenAI Sign in with ChatGPT DevKit에는 별도의 Noncommercial License가 적용됩니다. 향후 상업 제품으로 전환할 때 SIWC 서비스 조건과 DevKit 라이선스를 다시 검토해야 합니다. Easynews의 MIT 라이선스가 OpenAI 구성요소·상표의 사용 권한을 대신하지 않습니다.
 
 ## 설치 및 실행
 
@@ -46,12 +46,12 @@ npm test
 
 코드를 변경한 뒤 `npm run build`를 실행하고 확장 관리 화면의 새로고침 버튼을 누릅니다. 기존 뉴스 탭도 새로고침한 뒤 확장 아이콘을 다시 눌러 주세요. 패널의 **다시 확인** 버튼은 화면 상태를 다시 읽습니다. 접근 권한 부여와 선택 감지 시작은 확장 아이콘으로 수행합니다.
 
-## AI 설명 서버 설정
+## ChatGPT plan으로 AI 서버 실행
 
 1. `server/.env.example`을 `server/.env`로 복사합니다.
-2. `.env`의 `OPENAI_API_KEY`에 실제 API 키를 로컬에서 입력합니다. 키를 확장 코드·문서·Git에 넣지 않습니다.
+2. `.env`에 `AI_PROVIDER=chatgpt-plan`을 설정합니다. 이 경로는 `OPENAI_API_KEY`·API credit 설정을 요구하지 않습니다. 자격을 갖춘 Plus/Pro 계정과 plan 사용 승인이 필요합니다.
 3. `chrome://extensions`의 Easynews 카드에 표시된 32자 ID를 `EASYNEWS_EXTENSION_ID`에 입력합니다.
-4. `OPENAI_MODEL`은 기본 `gpt-4.1-mini`이며, Responses API를 지원하고 계정에서 사용할 수 있는 모델로 바꿀 수 있습니다.
+4. Windows에서 같은 사용자 계정으로 실행합니다. 다른 OS의 보호 저장소는 이번 구현에서 지원하지 않습니다.
 5. 저장소 루트에서 다음 명령을 실행합니다.
 
 ```powershell
@@ -60,9 +60,17 @@ npm run start:server
 
 서버는 `http://127.0.0.1:3000`에서만 실행됩니다. 환경변수를 바꿨다면 서버를 재시작합니다. 빌드 후 확장 관리 화면에서 Easynews를 새로고침하고, 뉴스 페이지도 새로고침합니다.
 
+Side Panel의 **Continue with ChatGPT**를 누르고 시스템 브라우저에서 계정과 plan 사용 승인을 완료합니다. **ChatGPT 연결됨 · Using ChatGPT plan** 표시 후 세 설명 모드와 관련 뉴스 AI 판정을 사용합니다. 현재 계정에서 모델을 조회해 Luna 계열 → mini → Sol → 카탈로그 순서의 텍스트 모델 후보로 선택합니다. 사용 가능한 모델이 없으면 오류를 표시하고 임의 slug로 요청하지 않습니다.
+
+**Manage usage**는 공식 ChatGPT Settings → Usage로 연결됩니다. 플랜·앱 한도 오류는 일반 연결 실패와 구분하며 새 plan 요청을 멈춥니다. 한도를 확인한 뒤 **연결 다시 확인**을 누르면 명시적으로 재확인합니다. **Disconnect**는 진행 요청을 취소하고 원격 renewable session 해제를 시도한 뒤 로컬 토큰을 제거합니다. 원격 해제를 확인하지 못하면 패널에서 안내합니다. 연결 선택 메뉴에서 저장된 계정에 다시 로그인하거나 다른 계정을 추가할 수 있습니다.
+
+### API Key migration/fallback
+
+실제 Plus/Pro E2E 검증 전까지 `.env.example`과 코드 기본값은 `AI_PROVIDER=api-key`입니다. 이 경로를 명시적으로 선택한 경우에만 `OPENAI_API_KEY`를 로컬 `.env`에 설정합니다. `OPENAI_MODEL` 기본값은 `gpt-4.1-mini`이며 Responses 지원·계정 접근 권한을 확인하세요. plan 요청 실패 시 API Key 과금으로 자동 전환하지 않습니다. 기존 Provider 삭제와 기본값 변경은 실제 QA 완료 후 수행합니다.
+
 문장을 1~2,000자 선택한 뒤 **쉽게 설명 / 왜 그런가 / 배경 설명**을 누릅니다. 버튼을 누를 때 선택 문장·기사 제목(최대 300자)·필요한 주변 문맥(최대 1,600자)만 서버와 OpenAI에 전달합니다. 도입부·URL·전문은 설명 요청에 넣지 않습니다. 긴 선택을 자동으로 기사 전체 설명으로 바꾸지 않으며, 2,000자를 넘으면 설명 버튼을 비활성화합니다. 설명은 일반 텍스트로 표시하고, 오류가 나면 **설명 다시 시도**를 제공합니다. 자동 재시도는 하지 않습니다.
 
-서버가 실행되지 않거나 API 키·확장 ID가 누락되면 패널에 설정 안내가 표시됩니다. 서버 상태 확인은 `GET /health`로 수행할 수 있으며 키나 기사 데이터는 반환하지 않습니다. 확장 ID·Origin·Host 검사와 JSON 전용 요청은 임의 웹페이지의 호출을 줄이는 로컬 접근 제한이며 회원 인증 시스템은 아닙니다.
+서버가 실행되지 않거나 선택한 Provider의 연결·설정 또는 확장 ID가 누락되면 안내를 표시합니다. 서버 상태 확인은 `GET /health`로 수행하며 키나 기사 데이터를 반환하지 않습니다. AI 연결 API에도 같은 확장 ID·Origin·Host 검사를 적용하고 토큰을 반환하지 않습니다. 이 검사는 임의 웹페이지의 호출을 줄이는 로컬 접근 제한이며 회원 인증 시스템은 아닙니다.
 
 ## 관련 뉴스 사용
 
@@ -70,9 +78,11 @@ npm run start:server
 
 기사에서 확장 아이콘을 누른 뒤 **관련 뉴스 찾기**를 누릅니다. 제목·URL/canonical·출처·발행 시각·최대 1,200자 도입부만 서버에 전달하고 선택 문장이나 전문은 보내지 않습니다. 검색은 최대 3회, 관계 판정 후보는 12개, 결과는 각 그룹 최대 4개·출처당 최대 2개입니다. 시각이 확인되지 않거나 과거인 기사는 후속으로 노출하지 않습니다. 결과가 부족하면 빈 그룹을 유지합니다.
 
-OpenAI 설정이 있으면 JSON schema와 runtime validation으로 사건 특징·기사 관계를 판정합니다. 설정이 없거나 호출이 실패해도 제목·시간 규칙으로 확인한 보수적 결과와 안내를 제공하며, 설명 기능의 오류 상태와 분리합니다. 원문 링크는 새 탭으로 열립니다. 새 기사 탭에서 확장 아이콘을 눌러 접근을 부여한 뒤 다시 설명·탐색할 수 있습니다. 검색·읽기 이력이나 결과 캐시는 만들지 않습니다.
+연결한 AI Provider로 사건 특징·기사 관계를 판정합니다. API Key 경로는 strict JSON schema를 사용합니다. 공식 DevKit의 plan 인터페이스는 schema 옵션을 노출하지 않아 schema를 지시문에 넣고 동일한 runtime validation을 적용합니다. 일반 AI 호출 실패는 제목·시간 규칙의 보수적 결과와 안내로 처리합니다. plan 인증·권한·한도·보호 저장소 오류는 직접 안내하며 추가 AI 요청이나 자동 과금 전환을 하지 않습니다. 원문 링크는 새 탭으로 열립니다. 새 기사 탭에서 확장 아이콘을 눌러 접근을 부여한 뒤 다시 설명·탐색할 수 있습니다. 검색·읽기 이력이나 결과 캐시는 만들지 않습니다.
 
 ## 데이터 처리 경계
+
+ChatGPT credential과 뉴스 임시 데이터는 분리합니다. 서버의 공식 SDK는 `~/.config/easynews/chatgpt-auth.json`에 Windows DPAPI `CurrentUser`로 암호화한 연결 정보를 원자적으로 저장하며 평문 fallback은 없습니다. 호스트 ID는 별도 `chatgpt-host.json`의 비밀이 아닌 UUID 식별자입니다. 같은 Windows 계정으로 서버를 재시작하면 보호된 연결을 재사용합니다. 보호 저장소가 없거나 복호화할 수 없으면 연결을 차단하고 기존 파일을 보존합니다. 토큰·인증 URL·뉴스 내용은 로그·확장 저장소로 보내지 않습니다. 패널에는 제한된 계정 표시 정보만 전달하고, 첫 연결 안내를 닫았다는 boolean만 `chrome.storage.local`에 저장합니다. ChatGPT 대화 내역에는 접근하지 않습니다.
 
 Easynews는 기사 저장 서비스가 아닙니다. 기사 본문·사용자 정리·학습 기록을 장기 저장하지 않습니다. 사용자의 정리와 지식 축적은 별도의 Notion 또는 Obsidian에서 직접 수행하며, 해당 도구 연동도 MVP 범위 밖입니다.
 
@@ -100,10 +110,10 @@ Phase 3/4도 이해·탐색에 필요한 최소 문맥·메타데이터만 일�
 
 ## 검증 상태
 
-검증 결과와 실제 Chrome 수동 확인 항목은 [Phase 1 QA](docs/phase-1-qa.md), [Phase 2 QA](docs/phase-2-qa.md), [Phase 3 QA](docs/phase-3-qa.md), [Phase 4 QA](docs/phase-4-qa.md)를 참조하세요. 자동 검증은 분리 실행과 실패 보완 후 총 50개의 통과 결과를 확보했습니다. TypeScript 검사와 빌드 성공만으로 실제 브라우저 동작 확인을 완료 처리하지 않습니다.
+검증 결과는 [Phase 1 QA](docs/phase-1-qa.md), [Phase 2 QA](docs/phase-2-qa.md), [Phase 3 QA](docs/phase-3-qa.md), [Phase 4 QA](docs/phase-4-qa.md), [SIWC QA](docs/siwc-qa.md)를 참조하세요. 이번 전체 자동 테스트는 109개 중 108개 통과, Unix 전용 SDK 테스트 1개 건너뜀입니다. Windows DPAPI와 Chrome 합성 화면 검증도 수행했습니다. 실제 Plus/Pro OAuth·plan 사용·설치 확장 QA는 별도 미검증이며 빌드·mock 성공으로 완료 처리하지 않습니다.
 
 ## 구조 및 다음 단계
 
-`extension/src`는 서비스 워커·문맥 추출·선택 감지·패널 코드를, `extension/public`은 패널 HTML·CSS를 포함합니다. `server/src`는 Node.js 기본 HTTP 서버, NAVER·OpenAI 어댑터와 검색 파이프라인을 포함합니다. 빌드 결과인 `extension/dist`와 `server/dist`는 Git에서 제외합니다. 확장 런타임 의존성은 Mozilla Readability 하나이며 서버는 Node.js 기본 API를 사용합니다. 빌드용 TypeScript·esbuild·Chrome/Node 타입을 사용합니다.
+`extension/src`는 서비스 워커·문맥 추출·선택 감지·패널 코드를, `extension/public`은 패널 HTML·CSS를 포함합니다. `server/src`는 Node.js HTTP 서버, 두 AI Provider, Windows 보호 저장소 어댑터, NAVER 검색 파이프라인을 포함합니다. `vendor/siwc-local`은 버전을 고정한 공식 DevKit이며 로컬 workspace dependency로 연결합니다. 빌드 결과는 Git에서 제외합니다. 확장 런타임 의존성은 Mozilla Readability이며 서버의 DevKit은 jose·proper-lockfile을 사용합니다.
 
-Phase 3/4 구현·자동 검증·Chrome mock QA를 마쳤습니다. 실제 API 및 설치 확장의 네이버·한국경제·매일경제·연합뉴스 QA가 남아 있습니다. 로그인·노트·자동 요약·클라우드 인프라는 추가하지 않습니다.
+Phase 1~4와 SIWC 구현·자동 검증·Chrome mock QA를 마쳤습니다. 실제 Plus/Pro plan 및 설치 확장의 네이버·한국경제·매일경제·연합뉴스 QA가 남아 있습니다. 개인용 로컬 범위를 유지하며 노트·자동 요약·클라우드 인프라는 추가하지 않습니다.

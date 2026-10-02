@@ -43,6 +43,8 @@ const mockBase = `http://127.0.0.1:${mockApp.address().port}`;
 const shim = `
 const event = () => { const listeners = []; return { addListener: f => listeners.push(f), emit: (...args) => listeners.forEach(f => f(...args)) }; };
 const secondArticle = location.pathname === '/article-b';
+const planFixture = location.pathname === '/chatgpt-qa';
+let planConnected = false, welcomeSeen = false;
 let tab = { id: secondArticle ? 2 : 1, url: secondArticle ? location.href : 'https://news.example/fixture' };
 const article = { title: secondArticle ? '한국은행 기준금리 동결 이후 채권시장 반응' : '한국은행 기준금리 동결', url: tab.url, canonicalUrl: tab.url, siteName: 'QA 언론사', publishedAt: secondArticle ? '2026-10-02T11:00:00+09:00' : '2026-10-02T10:00:00+09:00', textContent: '한국은행 기준금리 동결과 물가 상황을 확인하는 합성 문장입니다. '.repeat(10), confidence: 'high', extractionMethod: 'readability', surroundingContext: '선택 문장이 포함된 합성 문단입니다.' };
 let state = { status: 'ready', page: { title: article.title, url: tab.url, selectedText: '테스트 문장의 뜻을 확인합니다.', truncated: false, article } };
@@ -51,7 +53,7 @@ window.chrome = {
   runtime: { id: 'a'.repeat(32), connect: () => port },
   windows: { getCurrent: async () => ({ id: 1 }) },
   tabs: { query: async () => [tab], onActivated: event(), onUpdated: event() },
-  storage: { session: { get: async key => ({ [key]: state }) }, onChanged: event() }
+  storage: { session: { get: async key => ({ [key]: state }) }, local: { get: async () => ({ chatgptWelcomeSeen: welcomeSeen }), set: async () => { welcomeSeen = true; } }, onChanged: event() }
 };
 let failure = false;
 let delay = false;
@@ -62,6 +64,15 @@ let llmFailure = false;
 let missingConfig = false;
 const originalFetch = window.fetch.bind(window);
 window.fetch = async (url, options) => {
+  if (url.startsWith('http://127.0.0.1:3000/api/ai/')) {
+    const action = url.split('/').at(-1);
+    if (action === 'connect') planConnected = true;
+    if (action === 'disconnect') planConnected = false;
+    if (action === 'recheck') failure = false;
+    if (action === 'profiles') return Response.json({ profiles: [{ id: 'mock-profile', label: '합성 QA 계정', status: planConnected ? 'connected' : 'disconnected' }] });
+    if (action === 'status') return Response.json({ provider: planFixture ? 'chatgpt-plan' : 'api-key', status: planConnected ? 'connected' : 'disconnected', sharing: planConnected, ...(planConnected ? { model: 'mock-luna', account: 'synthetic@example.test' } : {}), usageLimited: planFixture && planConnected && failure });
+    return Response.json({ status: 'ok' });
+  }
   if (!['http://127.0.0.1:3000/api/explain', 'http://127.0.0.1:3000/api/related'].includes(url)) throw new Error('Fixture forbids external requests');
   const related = url.endsWith('/related');
   document.getElementById(related ? 'qa-related-calls' : 'qa-calls').textContent = String(related ? ++relatedCalls : ++calls);
@@ -71,6 +82,7 @@ window.fetch = async (url, options) => {
   // Simulate a transport that finishes after abort; the panel must discard it.
   if (slow) { delete fixtureOptions.signal; document.getElementById('qa-flight').textContent = '지연 요청 진행 중'; }
   const response = await originalFetch(related ? '/api/related' : '/api/explain', fixtureOptions);
+  if (planFixture && failure) return Response.json({ error: { code: 'CHATGPT_USAGE_LIMIT' } }, { status: 429 });
   if (slow) document.getElementById('qa-flight').textContent = '지연 요청 완료';
   return response;
 };
@@ -143,7 +155,7 @@ const app = createServer(async (request, response) => {
       return;
     }
     const files = { '/': 'sidepanel.html', '/sidepanel.js': 'sidepanel.js', '/sidepanel.css': 'sidepanel.css' };
-    const filename = request.url?.startsWith('/article-') ? 'sidepanel.html' : files[request.url];
+    const filename = request.url?.startsWith('/article-') || request.url === '/chatgpt-qa' ? 'sidepanel.html' : files[request.url];
     if (!filename) { response.writeHead(404); response.end(); return; }
     let content = await readFile(new URL(filename, dist), 'utf8');
     if (filename.endsWith('.html')) content = content.replace('<head>', '<head><script src="qa-shim.js"></script>').replace('<main>', `<main>${controls}`);

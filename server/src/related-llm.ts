@@ -41,6 +41,11 @@ export function createRelatedLlm(config: LlmConfig, fetcher: typeof fetch = fetc
       throw new ApiError(502, 'RELATION_CLASSIFICATION_FAILED', 'AI 관계 판정 응답을 읽지 못했습니다.');
     }
   };
+  return createRelatedTaskAdapter(request);
+}
+
+export type RelatedTaskRequest = (name: string, schema: object, instructions: string, input: unknown, signal: AbortSignal) => Promise<unknown>;
+export function createRelatedTaskAdapter(request: RelatedTaskRequest): RelatedLlm {
   return {
     fingerprint: async (input, signal) => validateFingerprint(await request('event_fingerprint', fingerprintSchema,
       '사건 특징을 JSON으로 추출한다. event 최대 200자, 각 목록 최대 8개·항목 60자. keywords는 1~8개, searchQueries는 1~3개·각 100자 이내다. 사건 주체와 핵심 사건을 유지하는 검색어로 후속 보도와 이전 배경을 찾는다. 본문에 없는 인물·기관은 추측하지 않는다.',

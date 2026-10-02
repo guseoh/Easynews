@@ -1,4 +1,5 @@
 import { deduplicate, enforceTime, fallbackFingerprint, fallbackRelations, rankCandidates, sourceDiversity } from './news-ranking.js';
+import { ApiError } from './explain.js';
 import { RELATED_LIMITS, dateTime, validateFingerprint, validateRelations, type Related, type RelatedArticle, type RelatedLlm, type RelatedWarning, type SearchNews } from './related-types.js';
 
 export function createRelatedService(search: SearchNews, llm?: RelatedLlm): Related {
@@ -12,7 +13,7 @@ export function createRelatedService(search: SearchNews, llm?: RelatedLlm): Rela
       let fingerprint = fallbackFingerprint(input);
       if (llm) {
         try { fingerprint = validateFingerprint(await llm.fingerprint(input, requestSignal)); }
-        catch { requestSignal.throwIfAborted(); warnings.push('FINGERPRINT_FALLBACK'); }
+        catch (error) { requestSignal.throwIfAborted(); if (error instanceof ApiError && error.code.startsWith('CHATGPT_') && error.code !== 'CHATGPT_FAILED') throw error; warnings.push('FINGERPRINT_FALLBACK'); }
       } else warnings.push('RULE_BASED');
       const queries = [...new Set(fingerprint.searchQueries)].slice(0, RELATED_LIMITS.queries);
       const batches = await Promise.all(queries.map((query) => search(query, requestSignal)));
@@ -21,7 +22,7 @@ export function createRelatedService(search: SearchNews, llm?: RelatedLlm): Rela
       let decisions = fallbackRelations(input, candidates);
       if (llm && candidates.length) {
         try { decisions = validateRelations({ relations: await llm.classify(input, fingerprint, candidates, requestSignal) }, candidates.length); }
-        catch { requestSignal.throwIfAborted(); warnings.push('RELATION_CLASSIFICATION_FAILED'); }
+        catch (error) { requestSignal.throwIfAborted(); if (error instanceof ApiError && error.code.startsWith('CHATGPT_') && error.code !== 'CHATGPT_FAILED') throw error; warnings.push('RELATION_CLASSIFICATION_FAILED'); }
       }
       requestSignal.throwIfAborted();
       const followUps: RelatedArticle[] = []; const background: RelatedArticle[] = [];

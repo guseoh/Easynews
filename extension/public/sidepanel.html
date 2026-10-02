@@ -10,6 +10,23 @@
   <body>
     <header><span class="eyebrow">뉴스 리딩 어시스턴트</span><h1>Easynews<span class="brand-dot">.</span></h1><p>직접 읽고, 궁금한 문장을 골라 보세요.</p></header>
     <main>
+      <section class="page-card" aria-labelledby="ai-connection-title">
+        <h2 id="ai-connection-title">AI 연결</h2>
+        <p id="ai-connection-status" class="caption" role="status" aria-live="polite">연결 상태를 확인합니다…</p>
+        <label for="chatgpt-accounts" class="caption">ChatGPT 연결</label>
+        <select id="chatgpt-accounts" hidden><option value="">현재 연결</option><option value="__new__">다른 계정 추가</option></select>
+        <button id="connect-chatgpt" type="button" hidden>Continue with ChatGPT</button>
+        <button id="cancel-chatgpt" type="button" hidden>연결 취소</button>
+        <button id="recheck-chatgpt" type="button" hidden>연결 다시 확인</button>
+        <button id="disconnect-chatgpt" type="button" hidden>Disconnect</button>
+        <a id="manage-usage" href="https://chatgpt.com/settings/usage" target="_blank" rel="noopener noreferrer" hidden>Manage usage</a>
+      </section>
+      <dialog id="chatgpt-welcome">
+        <h2>You're using your ChatGPT plan</h2>
+        <p>Easynews의 AI 요청에 ChatGPT plan을 사용합니다. 사용량과 앱 한도는 ChatGPT 설정에서 관리할 수 있습니다.</p>
+        <a href="https://chatgpt.com/settings/usage" target="_blank" rel="noopener noreferrer">Manage usage</a>
+        <button id="dismiss-chatgpt-welcome" type="button">Got it</button>
+      </dialog>
       <section class="page-card" aria-labelledby="page-title">
         <span class="eyebrow">읽고 있는 페이지</span>
         <h2 id="page-title">현재 페이지</h2>

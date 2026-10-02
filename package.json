@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "license": "MIT",
-  "workspaces": ["extension", "server"],
+  "workspaces": ["extension", "vendor/siwc-local", "server"],
   "engines": { "node": ">=22" },
   "scripts": {
     "build": "npm run build --workspaces",

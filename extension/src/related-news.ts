@@ -1,8 +1,10 @@
 import type { ArticleContext } from './article-context';
+import { CHATGPT_MESSAGES } from './chatgpt-connection';
 
 export interface RelatedArticle { title: string; url: string; source: string; publishedAt?: string; relationReason: string }
 export interface RelatedResult { followUps: RelatedArticle[]; background: RelatedArticle[]; warnings: string[] }
 export const RELATED_MESSAGES: Record<string, string> = {
+  ...CHATGPT_MESSAGES,
   CONTEXT_INSUFFICIENT: '기사 문맥이 부족합니다. 기사 페이지에서 확장 아이콘을 다시 눌러 주세요.',
   NEWS_SEARCH_NOT_CONFIGURED: '로컬 서버의 NAVER 뉴스 검색 API 설정이 필요합니다.',
   NEWS_SEARCH_CONFIGURATION_ERROR: 'NAVER 뉴스 검색 API 권한과 설정을 확인해 주세요.',

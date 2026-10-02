@@ -13,5 +13,8 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "typescript": "^5.9.0"
+  },
+  "dependencies": {
+    "@siwc/local": "0.1.0"
   }
 }

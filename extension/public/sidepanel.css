@@ -32,3 +32,8 @@ blockquote { margin: 0; border-left: 3px solid #388163; border-radius: 0 8px 8px
 .related-news li a { font-size: 12px; }
 button:disabled { cursor: default; color: #64746d; background: #edf0ed; border-color: #dfe7df; }
 footer { border-top: 1px solid #dfe7df; padding-top: 16px; margin-top: 32px; font-size: 11px; line-height: 1.7; }
+dialog { max-width: 320px; border: 1px solid #ddd; border-radius: 16px; padding: 24px; }
+dialog::backdrop { background: #0006; }
+#chatgpt-accounts { max-width: 100%; margin: 8px 0; }
+#manage-usage { display: inline-block; margin-top: 8px; }
+#manage-usage[hidden] { display: none; }

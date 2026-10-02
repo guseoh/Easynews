@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { ApiError, validateInput, MAX_ANSWER_LENGTH } from './explain.js';
 import type { Explain } from './openai.js';
 import { validateRelatedInput, type Related } from './related-types.js';
+import { planError, type ChatGPTPlanProvider } from './chatgpt-plan.js';
 
 const MAX_BODY_BYTES = 16_384;
 const MAX_CONCURRENT_REQUESTS = 2;
@@ -30,7 +31,7 @@ function send(response: ServerResponse, status: number, body: unknown) {
   response.end(JSON.stringify(body));
 }
 
-export function createApp(config: { extensionId: string }, explain: Explain, related?: Related) {
+export function createApp(config: { extensionId: string; providerId?: string }, explain: Explain, related?: Related, plan?: ChatGPTPlanProvider) {
   let active = 0; // A count only; no request text or response cache is retained.
   const origin = `chrome-extension://${config.extensionId}`;
   return createServer(async (request, response) => {
@@ -52,9 +53,10 @@ export function createApp(config: { extensionId: string }, explain: Explain, rel
         response.setHeader('Access-Control-Allow-Origin', origin);
         response.setHeader('Vary', 'Origin');
       }
-      if (request.method === 'OPTIONS' && ['/api/explain', '/api/related'].includes(request.url || '') && request.headers.origin === origin) {
+      const authRoute = ['/api/ai/status', '/api/ai/profiles', '/api/ai/connect', '/api/ai/disconnect', '/api/ai/recheck', '/api/ai/cancel'].includes(request.url || '');
+      if (request.method === 'OPTIONS' && (authRoute || ['/api/explain', '/api/related'].includes(request.url || '')) && request.headers.origin === origin) {
         response.writeHead(204, {
-          'Access-Control-Allow-Methods': 'POST',
+          'Access-Control-Allow-Methods': authRoute ? 'GET, POST' : 'POST',
           'Access-Control-Allow-Headers': 'Content-Type, X-Easynews-Extension',
           'Cache-Control': 'no-store',
         });
@@ -63,6 +65,31 @@ export function createApp(config: { extensionId: string }, explain: Explain, rel
       }
       if (request.headers['x-easynews-extension'] !== config.extensionId) {
         throw new ApiError(403, 'FORBIDDEN_CLIENT', '서버에 설정한 Easynews 확장 ID를 확인해 주세요.');
+      }
+      if (authRoute) {
+        if (['/api/ai/status', '/api/ai/profiles'].includes(request.url || '') && request.method !== 'GET') throw new ApiError(405, 'METHOD_NOT_ALLOWED', 'GET 요청만 지원합니다.');
+        if (request.url === '/api/ai/status' && request.method === 'GET') {
+          send(response, 200, plan ? await plan.status() : { provider: config.providerId || 'api-key', status: 'disconnected', sharing: false }); return;
+        }
+        if (!plan) throw new ApiError(503, 'CHATGPT_PROVIDER_DISABLED', '현재 API Key 방식으로 실행 중입니다.');
+        try {
+          if (request.url === '/api/ai/profiles' && request.method === 'GET') { send(response, 200, { profiles: await plan.profiles() }); return; }
+          if (request.method !== 'POST') throw new ApiError(405, 'METHOD_NOT_ALLOWED', 'POST 요청만 지원합니다.');
+          const data = await readJson(request);
+          if (!data || typeof data !== 'object' || Array.isArray(data)) throw new ApiError(400, 'INVALID_INPUT', '연결 요청 형식이 올바르지 않습니다.');
+          const options = data as Record<string, unknown>;
+          const allowed = request.url === '/api/ai/connect' ? ['profileId', 'newProfile', 'reconsent'] : [];
+          if (Object.keys(options).some((key) => !allowed.includes(key))
+            || (options.profileId !== undefined && (typeof options.profileId !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(options.profileId)))
+            || (options.newProfile !== undefined && typeof options.newProfile !== 'boolean')
+            || (options.reconsent !== undefined && typeof options.reconsent !== 'boolean')
+            || (options.newProfile && options.profileId)) throw new ApiError(400, 'INVALID_INPUT', '연결 요청 형식이 올바르지 않습니다.');
+          if (request.url === '/api/ai/connect') { plan.beginSignIn(options); send(response, 202, { status: 'connecting' }); return; }
+          if (request.url === '/api/ai/disconnect') await plan.disconnect();
+          if (request.url === '/api/ai/recheck') await plan.recheck();
+          if (request.url === '/api/ai/cancel') plan.cancelSignIn();
+          send(response, 200, { status: 'ok' }); return;
+        } catch (error) { throw planError(error); }
       }
       if (!['/api/explain', '/api/related'].includes(request.url || '')) {
         throw new ApiError(404, 'NOT_FOUND', '지원하지 않는 API입니다.');
