@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { ApiError, validateInput, MAX_ANSWER_LENGTH } from './explain.js';
 import type { Explain } from './openai.js';
+import { validateRelatedInput, type Related } from './related-types.js';
 
 const MAX_BODY_BYTES = 16_384;
 const MAX_CONCURRENT_REQUESTS = 2;
@@ -29,7 +30,7 @@ function send(response: ServerResponse, status: number, body: unknown) {
   response.end(JSON.stringify(body));
 }
 
-export function createApp(config: { extensionId: string }, explain: Explain) {
+export function createApp(config: { extensionId: string }, explain: Explain, related?: Related) {
   let active = 0; // A count only; no request text or response cache is retained.
   const origin = `chrome-extension://${config.extensionId}`;
   return createServer(async (request, response) => {
@@ -51,7 +52,7 @@ export function createApp(config: { extensionId: string }, explain: Explain) {
         response.setHeader('Access-Control-Allow-Origin', origin);
         response.setHeader('Vary', 'Origin');
       }
-      if (request.method === 'OPTIONS' && request.url === '/api/explain' && request.headers.origin === origin) {
+      if (request.method === 'OPTIONS' && ['/api/explain', '/api/related'].includes(request.url || '') && request.headers.origin === origin) {
         response.writeHead(204, {
           'Access-Control-Allow-Methods': 'POST',
           'Access-Control-Allow-Headers': 'Content-Type, X-Easynews-Extension',
@@ -63,15 +64,22 @@ export function createApp(config: { extensionId: string }, explain: Explain) {
       if (request.headers['x-easynews-extension'] !== config.extensionId) {
         throw new ApiError(403, 'FORBIDDEN_CLIENT', '서버에 설정한 Easynews 확장 ID를 확인해 주세요.');
       }
-      if (request.url !== '/api/explain') {
+      if (!['/api/explain', '/api/related'].includes(request.url || '')) {
         throw new ApiError(404, 'NOT_FOUND', '지원하지 않는 API입니다.');
       }
       if (request.method !== 'POST') throw new ApiError(405, 'METHOD_NOT_ALLOWED', 'POST 요청만 지원합니다.');
-      const input = validateInput(await readJson(request));
+      const body = await readJson(request);
+      const input = request.url === '/api/related' ? validateRelatedInput(body) : validateInput(body);
       if (active >= MAX_CONCURRENT_REQUESTS) throw new ApiError(429, 'SERVER_BUSY', '다른 설명을 처리 중입니다. 잠시 뒤 다시 시도해 주세요.');
       active++;
       try {
-        const answer = await explain(input, controller.signal);
+        if (request.url === '/api/related') {
+          if (!related) throw new ApiError(503, 'NEWS_SEARCH_NOT_CONFIGURED', '뉴스 검색 API 설정이 필요합니다.');
+          const result = await related(input as ReturnType<typeof validateRelatedInput>, controller.signal);
+          if (!controller.signal.aborted) send(response, 200, result);
+          return;
+        }
+        const answer = await explain(input as ReturnType<typeof validateInput>, controller.signal);
         if (controller.signal.aborted) return;
         if (typeof answer !== 'string' || !answer.trim() || answer.length > MAX_ANSWER_LENGTH) {
           throw new ApiError(502, 'INVALID_LLM_RESPONSE', 'AI 응답을 읽지 못했습니다. 다시 시도해 주세요.');

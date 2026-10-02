@@ -1,15 +1,21 @@
 import { createApp } from './app.js';
 import { createExplainer } from './openai.js';
+import { createRelatedLlm } from './related-llm.js';
+import { createNaverSearch } from './naver.js';
+import { createRelatedService } from './related.js';
 
 const extensionId = process.env.EASYNEWS_EXTENSION_ID?.trim() || '';
 if (extensionId && !/^[a-p]{32}$/.test(extensionId)) {
   console.error('EASYNEWS_EXTENSION_ID must be the 32-character Chrome extension ID.');
   process.exit(1);
 }
-const app = createApp({ extensionId }, createExplainer({
+const llmConfig = {
   apiKey: process.env.OPENAI_API_KEY?.trim() || '',
   model: process.env.OPENAI_MODEL?.trim() || 'gpt-4.1-mini',
-}));
+};
+const app = createApp({ extensionId }, createExplainer(llmConfig), createRelatedService(createNaverSearch({
+  clientId: process.env.NAVER_CLIENT_ID?.trim() || '', clientSecret: process.env.NAVER_CLIENT_SECRET?.trim() || '',
+}), llmConfig.apiKey ? createRelatedLlm(llmConfig) : undefined));
 app.requestTimeout = 15_000;
 app.headersTimeout = 10_000;
 app.on('error', () => { console.error('Easynews server could not start. Check whether port 3000 is in use.'); process.exitCode = 1; });
