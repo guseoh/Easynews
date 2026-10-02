@@ -17,6 +17,10 @@
 
 복제 DOM에 Mozilla Readability를 적용하고 metadata와 공통 article 문단으로 보완합니다. 전문은 로컬 추출 중에만 사용하며, 세션에는 metadata·최대 1,200자 도입부·최대 1,600자 선택 주변 문맥만 둡니다. 비기사·낮은 신뢰도는 문맥 부족을 안내합니다. 기사 전체 분석·자동 요약은 구현하지 않습니다.
 
+## 라이선스
+
+Easynews 자체 소스 코드는 [MIT License](LICENSE)입니다. 타사 구성요소는 각자의 라이선스를 유지하며 [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES.md)를 참조하세요. 현재 프로젝트는 개인용·로컬·비상업 용도입니다. 검토 중인 OpenAI Sign in with ChatGPT DevKit에는 별도의 Noncommercial License가 적용됩니다. 향후 상업 제품으로 전환할 때 SIWC 서비스 조건과 DevKit 라이선스를 다시 검토해야 합니다. Easynews의 MIT 라이선스가 OpenAI 구성요소·상표의 사용 권한을 대신하지 않습니다.
+
 ## 설치 및 실행
 
 Node.js 22 이상, npm, Chrome 116 이상이 필요합니다.
