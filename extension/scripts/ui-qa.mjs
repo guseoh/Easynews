@@ -2,6 +2,9 @@
 // No API key, news content, file storage or external requests are used.
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { build } from 'esbuild';
+
+const articleQa = (await build({ entryPoints: [new URL('../tests/article-context.browser.ts', import.meta.url).pathname.replace(/^\/(\w:)/, '$1')], bundle: true, write: false, format: 'iife' })).outputFiles[0].text;
 
 const dist = new URL('../dist/', import.meta.url);
 const shim = `
@@ -53,6 +56,16 @@ const controls = `<aside aria-label="QA fixture" style="border:1px dashed #aaa;p
 const app = createServer(async (request, response) => {
   response.setHeader('Cache-Control', 'no-store');
   try {
+    if (request.url === '/article-qa') {
+      response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      response.end('<!doctype html><html lang="ko"><meta charset="UTF-8"><title>Easynews Article Context QA</title><h1>합성 HTML로 기사 문맥 검증</h1><p>외부 요청·API 키·기사 원문 없이 Chrome 실제 DOM과 Readability를 사용합니다.</p><button>문맥 테스트 실행</button><ul id="qa-results"></ul><script src="article-qa.js"></script></html>');
+      return;
+    }
+    if (request.url === '/article-qa.js') {
+      response.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' });
+      response.end(articleQa);
+      return;
+    }
     if (request.url === '/api/explain' && request.method === 'POST') {
       const chunks = [];
       for await (const chunk of request) chunks.push(chunk);

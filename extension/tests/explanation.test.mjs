@@ -39,6 +39,17 @@ test('oversized input and invalid server responses are rejected; upstream text i
   await assert.rejects(requestExplanation('simple', { title: '', selectedText: '문장' }, signal, async () => Response.json({ error: { code: 'LLM_RATE_LIMIT', message: 'private provider data' } }, { status: 429 })), /요청 한도/);
 });
 
+test('explanation sends bounded surrounding context but never the extracted article lead', async () => {
+  const { requestExplanation } = load();
+  let body;
+  await requestExplanation('simple', { title: '기사', selectedText: '문장', surroundingContext: '가'.repeat(1800), textContent: 'article lead' }, new AbortController().signal, async (_url, options) => {
+    body = JSON.parse(options.body);
+    return Response.json({ answer: '설명' });
+  });
+  assert.equal(body.surroundingContext.length, 1600);
+  assert.equal(body.textContent, undefined);
+});
+
 test('invalidation aborts and discards an answer that arrives after a selection or page change', async () => {
   const { ExplanationSession } = load();
   const session = new ExplanationSession();

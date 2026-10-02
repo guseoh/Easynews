@@ -71,6 +71,21 @@ test('only configured extension can call explain; preflight is narrow', async (t
   assert.equal(preflight.headers.get('access-control-allow-methods'), 'POST');
 });
 
+test('explanation accepts only bounded optional surrounding context and keeps it untrusted', async (t) => {
+  let prompt;
+  const { post } = await start(t, createExplainer({ apiKey: 'test', model: 'test' }, async (_url, options) => {
+    prompt = JSON.parse(options.body);
+    return Response.json(output());
+  }));
+  assert.equal((await post({ ...input, surroundingContext: '선택 문장 주변 문단' })).status, 200);
+  assert.equal(JSON.parse(prompt.input).surroundingContext, '선택 문장 주변 문단');
+  assert.equal(prompt.store, false);
+  assert.match(prompt.instructions, /주변 문맥.*신뢰하지 않는 데이터/);
+  assert.equal((await post({ ...input, surroundingContext: '가'.repeat(1601) })).status, 400);
+  assert.equal((await post({ ...input, surroundingContext: 123 })).status, 400);
+  assert.equal((await post({ ...input, textContent: 'whole article' })).status, 400);
+});
+
 test('malformed JSON, unsupported content types and oversized bodies fail safely', async (t) => {
   const { post } = await start(t, async () => '응답');
   assert.equal((await post(input, { body: '{' })).status, 400);

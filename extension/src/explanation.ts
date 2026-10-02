@@ -2,7 +2,7 @@ export const MAX_EXPLAIN_SELECTION = 2_000;
 export const MAX_EXPLAIN_TITLE = 300;
 export const MAX_EXPLAIN_ANSWER = 8_000;
 export type ExplainMode = 'simple' | 'why' | 'background';
-export interface ExplainSelection { title: string; selectedText: string }
+export interface ExplainSelection { title: string; selectedText: string; surroundingContext?: string }
 
 export async function requestExplanation(
   mode: ExplainMode, selection: ExplainSelection, signal: AbortSignal, fetcher: typeof fetch = fetch,
@@ -13,7 +13,8 @@ export async function requestExplanation(
   const response = await fetcher('http://127.0.0.1:3000/api/explain', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Easynews-Extension': chrome.runtime.id },
-    body: JSON.stringify({ mode, selectedText: selection.selectedText, articleTitle: selection.title.slice(0, MAX_EXPLAIN_TITLE) }),
+    body: JSON.stringify({ mode, selectedText: selection.selectedText, articleTitle: selection.title.slice(0, MAX_EXPLAIN_TITLE),
+      ...(selection.surroundingContext ? { surroundingContext: selection.surroundingContext.slice(0, 1_600) } : {}) }),
     cache: 'no-store', signal,
   });
   let value: unknown;

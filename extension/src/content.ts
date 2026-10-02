@@ -1,4 +1,5 @@
 import { MAX_SELECTION_LENGTH, type PageSnapshot } from './state';
+import { extractArticleContext, selectionContext, type ArticleContext } from './article-context';
 
 // This marker belongs to the extension's isolated world, not the page's scripts.
 const scope = window as Window & { easynewsCapture?: () => void };
@@ -9,6 +10,8 @@ if (scope.easynewsCapture) {
   let selectedText = '';
   let truncated = false;
   let lastUrl = location.href;
+  let article: ArticleContext | undefined;
+  let surroundingContext = '';
   let timer: ReturnType<typeof setTimeout>;
   let stopped = false;
 
@@ -18,7 +21,10 @@ if (scope.easynewsCapture) {
       selectedText = '';
       truncated = false;
       lastUrl = location.href;
+      article = undefined;
+      surroundingContext = '';
     }
+    article ??= extractArticleContext(document, location.href);
     const selection = window.getSelection();
     const focus = document.activeElement;
     // Do not collect selections inside editors, password fields, or forms.
@@ -28,12 +34,14 @@ if (scope.easynewsCapture) {
     if (text) {
       selectedText = text.slice(0, MAX_SELECTION_LENGTH);
       truncated = text.length > MAX_SELECTION_LENGTH;
+      surroundingContext = article.confidence === 'low' ? '' : selectionContext(document, selectedText, selection);
     }
     const page: PageSnapshot = {
-      title: document.title.slice(0, 1_000),
+      title: article.title,
       url: location.href,
       selectedText,
       truncated,
+      article: { ...article, ...(surroundingContext ? { surroundingContext } : {}) },
     };
     // Retain the last nonempty selection when focus moves to the Side Panel.
     try {
@@ -48,6 +56,9 @@ if (scope.easynewsCapture) {
   };
   const stop = () => {
     stopped = true;
+    selectedText = '';
+    surroundingContext = '';
+    article = undefined;
     clearTimeout(timer);
     document.removeEventListener('selectionchange', schedule);
     window.removeEventListener('pageshow', capture);

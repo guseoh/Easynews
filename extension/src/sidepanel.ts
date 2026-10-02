@@ -11,6 +11,7 @@ const explainButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('
 const answer = document.querySelector<HTMLParagraphElement>('#answer')!;
 const explainStatus = document.querySelector<HTMLParagraphElement>('#explain-status')!;
 const retry = document.querySelector<HTMLButtonElement>('#retry-explain')!;
+const contextStatus = document.querySelector<HTMLParagraphElement>('#context-status')!;
 const explanation = new ExplanationSession();
 let currentState: TabState | undefined;
 let currentKey = '';
@@ -72,6 +73,8 @@ function render(state?: TabState, key = '') {
   count.textContent = state?.page?.selectedText
     ? `${state.page.selectedText.length.toLocaleString('ko-KR')}자${state.page.truncated ? ' · 긴 선택은 처음 8,000자만 표시합니다.' : ''}` : '';
   status.dataset.state = state?.status || 'idle';
+  contextStatus.textContent = state?.page?.article?.confidence === 'low' ? '기사 문맥을 충분히 추출하지 못했습니다. 선택 문장만으로 설명할 수 있습니다.'
+    : state?.page?.article ? '기사 문맥을 확인했습니다. 설명에는 필요한 짧은 주변 문맥만 사용합니다.' : '';
   status.textContent = state?.status === 'loading' ? '페이지 정보를 읽고 있습니다…'
     : state?.status === 'error' ? state.message || '페이지 정보를 읽지 못했습니다.'
     : state?.status === 'ready' ? '문장을 선택하면 여기에 표시됩니다.'
@@ -84,7 +87,7 @@ function render(state?: TabState, key = '') {
 
 async function explain(mode: ExplainMode) {
   if (closed || busy || !canExplain() || !currentState?.page) return;
-  const selection = { title: currentState.page.title, selectedText: currentState.page.selectedText };
+  const selection = { title: currentState.page.title, selectedText: currentState.page.selectedText, surroundingContext: currentState.page.article?.surroundingContext };
   busy = true;
   lastMode = mode;
   retry.hidden = true;

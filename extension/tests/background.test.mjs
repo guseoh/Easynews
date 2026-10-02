@@ -37,10 +37,11 @@ function setup() {
       onUpdated: event(), onRemoved: event(), onActivated: event(),
     },
   };
-  runInNewContext(code, { chrome, console });
+  runInNewContext(code, { chrome, console, URL });
   const activate = async (tabId) => { chrome.action.onClicked.emit(tabs.get(tabId)); await flush(); };
   const snapshot = async (tabId = 1, overrides = {}, senderOverrides = {}) => {
-    const page = { title: '기사 제목', url: tabs.get(tabId).url, selectedText: '선택 문장', truncated: false, ...overrides };
+    const page = { title: '기사 제목', url: tabs.get(tabId).url, selectedText: '선택 문장', truncated: false,
+      article: { title: '기사 제목', url: tabs.get(tabId).url, textContent: '짧은 도입부', surroundingContext: '선택 문장의 문단', extractionMethod: 'fallback', confidence: 'medium' }, ...overrides };
     const sender = { id: 'test', tab: tabs.get(tabId), frameId: 0, ...senderOverrides };
     chrome.runtime.onMessage.emit({ type: 'PAGE_SNAPSHOT', page }, sender, () => {});
     await flush();
@@ -70,6 +71,7 @@ test('closing the panel clears state and late messages cannot restore it', async
   env.chrome.runtime.onConnect.emit(port);
   await env.activate(1);
   await env.snapshot();
+  assert.equal(env.data['tab:1'].page.article.surroundingContext, '선택 문장의 문단');
   port.onDisconnect.emit();
   await flush();
   await env.snapshot();
@@ -83,6 +85,7 @@ test('switching tabs clears the old selection without affecting another window',
   await env.snapshot();
   await env.activate(3);
   await env.snapshot(3);
+  assert.equal(env.data['tab:1'].page.article.textContent, '짧은 도입부');
   env.chrome.tabs.onActivated.emit({ tabId: 2, windowId: 10 });
   await flush();
   assert.equal(env.data['tab:1'], undefined);

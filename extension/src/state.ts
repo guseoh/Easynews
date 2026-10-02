@@ -5,6 +5,7 @@ export interface PageSnapshot {
   url: string;
   selectedText: string;
   truncated: boolean;
+  article?: ArticleContext;
 }
 
 export interface TabState {
@@ -21,5 +22,7 @@ export function isSnapshot(value: unknown): value is PageSnapshot {
   return typeof page.title === 'string' && page.title.length <= 1_000
     && typeof page.url === 'string' && /^https?:\/\//.test(page.url)
     && typeof page.selectedText === 'string' && page.selectedText.length <= MAX_SELECTION_LENGTH
-    && typeof page.truncated === 'boolean';
+    && typeof page.truncated === 'boolean'
+    && (page.article === undefined || isArticleContext(page.article, page.url));
 }
+import { isArticleContext, type ArticleContext } from './article-context';

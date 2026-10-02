@@ -16,6 +16,7 @@
         <a id="page-url" target="_blank" rel="noopener noreferrer" hidden></a>
       </section>
       <div class="status-row"><p id="status" role="status" aria-live="polite"></p><button id="refresh" type="button">다시 확인</button></div>
+      <p id="context-status" class="caption" role="status"></p>
       <section aria-labelledby="selection-title">
         <h2 id="selection-title">선택한 내용</h2>
         <blockquote id="selected-text">기사에서 이해하기 어려운 문장을 선택해 주세요.</blockquote>
@@ -24,7 +25,7 @@
       <section class="next-step" aria-labelledby="explain-title">
         <h2 id="explain-title">문장 이해하기</h2>
         <div class="explain-actions"><button data-mode="simple" disabled>쉽게 설명</button><button data-mode="why" disabled>왜 그런가</button><button data-mode="background" disabled>배경 설명</button></div>
-        <p class="caption">버튼을 누르면 선택 문장과 기사 제목만 AI에 전달합니다.</p>
+        <p class="caption">버튼을 누르면 선택 문장·기사 제목·필요한 짧은 주변 문맥만 AI에 전달합니다.</p>
         <p id="explain-status" class="caption" role="status" aria-live="polite"></p>
         <button id="retry-explain" type="button" hidden>설명 다시 시도</button>
         <p id="answer" aria-live="polite"></p>
