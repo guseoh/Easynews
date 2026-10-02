@@ -22,5 +22,7 @@ blockquote { margin: 0; border-left: 3px solid #388163; border-radius: 0 8px 8px
 .caption { font-size: 12px; margin-top: 10px; }
 .next-step { border-top: 1px solid #dfe7df; margin-top: 28px; padding-top: 18px; }
 .explain-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+#answer { margin-top: 16px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.9; }
+#retry-explain { margin-top: 12px; font-size: 12px; }
 button:disabled { cursor: default; color: #64746d; background: #edf0ed; border-color: #dfe7df; }
 footer { border-top: 1px solid #dfe7df; padding-top: 16px; margin-top: 32px; font-size: 11px; line-height: 1.7; }
