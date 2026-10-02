@@ -1,6 +1,5 @@
 import { createApp } from './app.js';
-import { createExplainer } from './openai.js';
-import { createRelatedLlm } from './related-llm.js';
+import { OpenAIApiKeyProvider, selectAiProvider } from './ai-provider.js';
 import { createNaverSearch } from './naver.js';
 import { createRelatedService } from './related.js';
 
@@ -13,9 +12,10 @@ const llmConfig = {
   apiKey: process.env.OPENAI_API_KEY?.trim() || '',
   model: process.env.OPENAI_MODEL?.trim() || 'gpt-4.1-mini',
 };
-const app = createApp({ extensionId }, createExplainer(llmConfig), createRelatedService(createNaverSearch({
+const provider = selectAiProvider(process.env.AI_PROVIDER, new OpenAIApiKeyProvider(llmConfig));
+const app = createApp({ extensionId }, provider.explain, createRelatedService(createNaverSearch({
   clientId: process.env.NAVER_CLIENT_ID?.trim() || '', clientSecret: process.env.NAVER_CLIENT_SECRET?.trim() || '',
-}), llmConfig.apiKey ? createRelatedLlm(llmConfig) : undefined));
+}), provider.relatedLlm));
 app.requestTimeout = 15_000;
 app.headersTimeout = 10_000;
 app.on('error', () => { console.error('Easynews server could not start. Check whether port 3000 is in use.'); process.exitCode = 1; });
