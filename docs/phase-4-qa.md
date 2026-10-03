@@ -1,5 +1,7 @@
 # Phase 4 — Related News 검증
 
+현재 구현과 실제 Plus QA는 [2026-10-03 Web search 전환 QA](phase-4-web-search-qa.md)를 참조하세요. 아래는 전환 전 NAVER mock 검증의 역사 기록이며 현재 서버에 NAVER 키는 필요하지 않습니다.
+
 검증일: 2026-10-02 (Asia/Seoul). 구현·자동 검증·mock Chrome QA 완료. 실제 API와 설치 확장의 언론사별 QA는 대기합니다.
 
 ## 구현 내용

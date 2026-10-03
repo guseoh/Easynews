@@ -1,6 +1,6 @@
 # Sign in with ChatGPT 전환 QA
 
-기준일: 2026-10-03. 실제 Plus의 **핵심 E2E QA 성공**. 설치 확장의 화면·OAuth 승인은 사용자 수동 QA와 제공한 화면으로 확인했고, 에이전트는 서버 상태·실제 inference·Disconnect 후 요청 차단·재로그인·서버 재시작을 검증했다. Phase 4 실제 관계 판정은 NAVER API 미설정으로 미검증이다. mock 검증과 실제 plan 검증은 구분한다.
+기준일: 2026-10-03. 실제 Plus의 **핵심 E2E QA 성공**. 설치 확장의 화면·OAuth 승인은 사용자 수동 QA와 제공한 화면으로 확인했고, 에이전트는 서버 상태·실제 inference·Disconnect 후 요청 차단·재로그인·서버 재시작을 검증했다. 2026-10-03 Phase 4를 GPT-6 Luna web_search로 전환한 실제 Plus HTTP/plan QA는 [별도 기록](phase-4-web-search-qa.md)을 참조한다. 아래 NAVER 관련 미검증 표시는 전환 전의 역사 기록이다. mock 검증과 실제 plan 검증은 구분한다.
 
 ## 시작 상태와 호출 경계
 
@@ -125,3 +125,7 @@ Disconnect는 진행 중 요청을 중단하고 SDK의 공식 revocation을 시�
 - 실제 호출은 짧은 합성 입력으로 수행했다. credential·기사·선택 텍스트·AI 응답 내용을 로그나 문서에 출력하지 않았다. 새 모델의 Chrome 화면 재검증, Pro, 실제 NAVER 검색·Phase 4 관계 판정은 이번 변경에서 미검증이다.
 
 참고: [GPT-6 Luna 모델](https://developers.openai.com/api/docs/models/gpt-6-luna), [SIWC 모델과 inference](https://developers.openai.com/siwc/token-sharing-open-source/models-and-inference).
+
+## Phase 4 web_search 전환 — 2026-10-03
+
+실제 서버는 NAVER 대신 ChatGPT plan GPT-6 Luna · Medium hosted web_search를 사용한다. 별도 OpenAI/NAVER 키 없이 경제·국제·IT 입력으로 검색과 관계 판정을 검증했으며 9개 Responses 모두 completed다. 국제 후속 4개 반환, 경제·IT 및 배경 그룹은 빈 결과다. 날짜·후보 제한·원문 링크와 실제 진행 stream을 확인했고 설치 Chrome 화면 재QA·배경 추천 품질·Pro는 남아 있다. 계약·시간·한계는 [Phase 4 Web search QA](phase-4-web-search-qa.md)에 기록한다. 기존 문장 설명의 xhigh·30초와 DPAPI 정책은 유지한다.

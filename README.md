@@ -4,7 +4,7 @@
 
 **Easynews는 기사 원문을 저장·재배포하지 않고, 사용자가 현재 읽고 있는 기사에서 요청한 최소한의 텍스트만 일시적으로 처리합니다. 관련 뉴스는 제목·출처·링크 중심으로 제공하고 원문은 항상 언론사 페이지에서 읽도록 합니다.**
 
-**Phase 1 — Extension Foundation**, **Phase 2 — AI Explanation**, **Phase 3 — Article Context**, **Phase 4 — Related News**를 구현했습니다. 공식 **Sign in with ChatGPT + ChatGPT plan** 경로는 실제 Plus의 핵심 E2E QA를 통과했습니다. 사용자 요청에 따라 기본 Provider는 ChatGPT plan이며 모델은 **GPT-6 Luna · Extra High**입니다. Pro 및 실제 NAVER 검색·관계 판정은 미검증입니다. 자동 검증·Chrome fixture와 실제 환경 QA를 구분합니다.
+**Phase 1 — Extension Foundation**, **Phase 2 — AI Explanation**, **Phase 3 — Article Context**, **Phase 4 — Related News**를 구현했습니다. 공식 **Sign in with ChatGPT + ChatGPT plan** 경로는 실제 Plus의 핵심 E2E QA를 통과했습니다. 사용자 요청에 따라 기본 Provider는 ChatGPT plan이며 모델은 **GPT-6 Luna · Extra High**입니다. Phase 4 검색·관계 판정은 GPT-6 Luna · Medium으로 분리합니다. 실제 검증 범위와 제한은 [Web search QA](docs/phase-4-web-search-qa.md)를 참조하세요. Pro는 미검증입니다. 자동 검증·Chrome fixture와 실제 환경 QA를 구분합니다.
 
 - Chrome Manifest V3 확장 및 Side Panel
 - 확장 아이콘 실행 시 현재 페이지 제목·URL 확인
@@ -60,7 +60,7 @@ npm run start:server
 
 서버는 `http://127.0.0.1:3000`에서만 실행됩니다. 환경변수를 바꿨다면 서버를 재시작합니다. 빌드 후 확장 관리 화면에서 Easynews를 새로고침하고, 뉴스 페이지도 새로고침합니다.
 
-Side Panel의 **Continue with ChatGPT**를 누르고 시스템 브라우저에서 계정과 plan 사용 승인을 완료합니다. **ChatGPT 연결됨 · Using ChatGPT plan** 표시 후 세 설명 모드와 관련 뉴스 AI 판정을 사용합니다. 모델은 `gpt-6-luna`, `reasoning.effort`는 `xhigh`(Extra High)로 명시합니다. 계정의 모델 discovery는 유지하지만 표시용 목록에 모델이 없다는 이유로 다른 모델로 전환하지 않습니다. 접근 권한은 실제 Responses 요청에서 확인하며 거부되면 오류를 안내합니다. 실제 Plus 호출에서 요청 모델·effort와 `response.completed`를 확인했습니다.
+Side Panel의 **Continue with ChatGPT**를 누르고 시스템 브라우저에서 계정과 plan 사용 승인을 완료합니다. **ChatGPT 연결됨 · Using ChatGPT plan** 표시 후 세 설명 모드와 관련 뉴스 AI 판정을 사용합니다. 모델은 `gpt-6-luna`, 문장 설명의 `reasoning.effort`는 `xhigh`(Extra High), 관련 뉴스는 `medium`으로 명시합니다. 계정의 모델 discovery는 유지하지만 표시용 목록에 모델이 없다는 이유로 다른 모델로 전환하지 않습니다. 접근 권한은 실제 Responses 요청에서 확인하며 거부되면 오류를 안내합니다. 실제 Plus 호출에서 요청 모델·effort와 `response.completed`를 확인했습니다.
 
 **Manage usage**는 공식 ChatGPT Settings → Usage로 연결됩니다. 플랜·앱 한도 오류는 일반 연결 실패와 구분하며 새 plan 요청을 멈춥니다. 한도를 확인한 뒤 **연결 다시 확인**을 누르면 명시적으로 재확인합니다. **Disconnect**는 진행 요청을 취소하고 원격 renewable session 해제를 시도한 뒤 로컬 토큰을 제거합니다. 원격 해제를 확인하지 못하면 패널에서 안내합니다. 연결 선택 메뉴에서 저장된 계정에 다시 로그인하거나 다른 계정을 추가할 수 있습니다.
 
@@ -74,11 +74,13 @@ Side Panel의 **Continue with ChatGPT**를 누르고 시스템 브라우저에�
 
 ## 관련 뉴스 사용
 
-서버의 `.env`에 `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`을 로컬에서 설정합니다. [NAVER 뉴스 검색 공식 문서](https://developers.naver.com/docs/serviceapi/search/news/news.md)에 따라 검색 API 사용 권한을 설정해야 합니다. 실제 키는 Git·확장·README에 넣지 않습니다.
+Sign in with ChatGPT로 plan 사용을 승인합니다. 별도 OpenAI·NAVER API 키 없이 GPT-6 Luna의 Responses `web_search`로 검색합니다. 명시적인 API Key Provider는 문장 설명에 계속 사용할 수 있으며, 관련 뉴스 검색에는 ChatGPT plan이 필요합니다. NAVER 어댑터는 과거 fixture 검증용으로 남아 있고 실제 서버에서는 사용하지 않습니다.
 
-기사에서 확장 아이콘을 누른 뒤 **관련 뉴스 찾기**를 누릅니다. 제목·URL/canonical·출처·발행 시각·최대 1,200자 도입부만 서버에 전달하고 선택 문장이나 전문은 보내지 않습니다. 검색은 최대 3회, 관계 판정 후보는 12개, 결과는 각 그룹 최대 4개·출처당 최대 2개입니다. 시각이 확인되지 않거나 과거인 기사는 후속으로 노출하지 않습니다. 결과가 부족하면 빈 그룹을 유지합니다.
+기사에서 확장 아이콘을 누른 뒤 **관련 뉴스 찾기**를 누릅니다. 제목·URL/canonical·출처·발행 시각·최대 1,200자 도입부만 서버에 전달하고 선택 문장이나 전문은 보내지 않습니다. 사건·주체·키워드·검색어를 묶은 검색 요청은 한 번이며 hosted tool은 필요한 검색을 수행합니다. 관계 판정 후보는 최대 12개, 결과는 각 그룹 최대 4개·출처당 최대 2개입니다. 시각이 확인되지 않거나 과거인 기사는 후속으로 노출하지 않습니다. 결과가 부족하면 빈 그룹을 유지합니다.
 
-연결한 AI Provider로 사건 특징·기사 관계를 판정합니다. API Key 경로는 strict JSON schema를 사용합니다. 공식 DevKit의 plan 인터페이스는 schema 옵션을 노출하지 않아 schema를 지시문에 넣고 동일한 runtime validation을 적용합니다. 일반 AI 호출 실패는 제목·시간 규칙의 보수적 결과와 안내로 처리합니다. plan 인증·권한·한도·보호 저장소 오류는 직접 안내하며 추가 AI 요청이나 자동 과금 전환을 하지 않습니다. 원문 링크는 새 탭으로 열립니다. 새 기사 탭에서 확장 아이콘을 눌러 접근을 부여한 뒤 다시 설명·탐색할 수 있습니다. 검색·읽기 이력이나 결과 캐시는 만들지 않습니다.
+GPT-6 Luna · Medium으로 사건 특징·기사 관계를 별도로 판정합니다. 공식 DevKit의 plan 인터페이스는 schema 옵션을 노출하지 않아 schema를 지시문에 넣고 동일한 runtime validation을 적용합니다. 일반 AI 호출 실패는 제목·시간 규칙의 보수적 결과와 안내로 처리합니다. plan 인증·권한·한도·보호 저장소 오류는 직접 안내하며 추가 AI 요청이나 자동 과금 전환을 하지 않습니다. 원문 링크는 새 탭으로 열립니다. 새 기사 탭에서 확장 아이콘을 눌러 접근을 부여한 뒤 다시 설명·탐색할 수 있습니다. 검색·읽기 이력이나 결과 캐시는 만들지 않습니다. 상위 후보에서 JSON-LD·일반 meta·time 발행 시각만 보강하며, 날짜가 없거나 페이지 접근이 실패하면 추측하지 않습니다. 페이지 요청은 공개 주소만 허용하고 리다이렉트도 재검증하며, 5초·512 KiB·동시 3개로 제한합니다.
+
+검색 90초, 관련 endpoint 120초, 패널 135초로 제한합니다. 패널에는 검색 → 후보 확인 → 관계 판정의 실제 진행 단계를 표시합니다. 기존 문장 설명의 30초 서버 상한과 취소·기사 이동 시 정리는 유지합니다.
 
 ## 데이터 처리 경계
 
@@ -110,10 +112,10 @@ Phase 3/4도 이해·탐색에 필요한 최소 문맥·메타데이터만 일�
 
 ## 검증 상태
 
-검증 결과는 [Phase 1 QA](docs/phase-1-qa.md), [Phase 2 QA](docs/phase-2-qa.md), [Phase 3 QA](docs/phase-3-qa.md), [Phase 4 QA](docs/phase-4-qa.md), [SIWC QA](docs/siwc-qa.md)를 참조하세요. 최신 전체 자동 테스트는 113개 중 112개 통과, Unix 전용 SDK 테스트 1개 건너뜀입니다. 실제 Plus의 핵심 E2E QA를 통과했습니다. 사용자가 설치 확장에서 OAuth·세 설명 모드·선택 변경·Manage usage를 수동 확인했고, 서버에서 plan 승인·모델 discovery·실제 Responses 완료·Disconnect 후 요청 차단·재로그인과 재시작 복구를 검증했습니다. 실제 NAVER 검색 및 Phase 4 관계 판정은 API 미설정으로 미검증입니다. 사용자 요청으로 기본 Provider를 ChatGPT plan으로 변경했습니다.
+검증 결과는 [Phase 1 QA](docs/phase-1-qa.md), [Phase 2 QA](docs/phase-2-qa.md), [Phase 3 QA](docs/phase-3-qa.md), [Phase 4 QA](docs/phase-4-qa.md), [SIWC QA](docs/siwc-qa.md)를 참조하세요. 최신 전체 자동 테스트는 128개 중 127개 통과, Unix 전용 SDK 테스트 1개 건너뜀입니다. 실제 Plus의 핵심 E2E QA를 통과했습니다. 사용자가 설치 확장에서 OAuth·세 설명 모드·선택 변경·Manage usage를 수동 확인했고, 서버에서 plan 승인·모델 discovery·실제 Responses 완료·Disconnect 후 요청 차단·재로그인과 재시작 복구를 검증했습니다. 실제 Plus Phase 4 결과는 [Web search QA](docs/phase-4-web-search-qa.md)에 별도로 기록합니다. 사용자 요청으로 기본 Provider를 ChatGPT plan으로 변경했습니다.
 
 ## 구조 및 다음 단계
 
-`extension/src`는 서비스 워커·문맥 추출·선택 감지·패널 코드를, `extension/public`은 패널 HTML·CSS를 포함합니다. `server/src`는 Node.js HTTP 서버, 두 AI Provider, Windows 보호 저장소 어댑터, NAVER 검색 파이프라인을 포함합니다. `vendor/siwc-local`은 버전을 고정한 공식 DevKit이며 로컬 workspace dependency로 연결합니다. 빌드 결과는 Git에서 제외합니다. 확장 런타임 의존성은 Mozilla Readability이며 서버의 DevKit은 jose·proper-lockfile을 사용합니다.
+`extension/src`는 서비스 워커·문맥 추출·선택 감지·패널 코드를, `extension/public`은 패널 HTML·CSS를 포함합니다. `server/src`는 Node.js HTTP 서버, 두 AI Provider, Windows 보호 저장소 어댑터, ChatGPT hosted web search·공개 페이지 metadata 보강 파이프라인을 포함합니다. `vendor/siwc-local`은 버전을 고정한 공식 DevKit이며 로컬 workspace dependency로 연결합니다. 빌드 결과는 Git에서 제외합니다. 확장 런타임 의존성은 Mozilla Readability이며 서버의 DevKit은 jose·proper-lockfile을 사용합니다.
 
-Phase 1~4와 SIWC 구현·자동 검증·Chrome mock QA 및 실제 Plus 핵심 E2E를 마쳤습니다. 실제 NAVER 검색·Phase 4 관계 판정, Pro 계정과 실제 오류 조건의 QA가 남아 있습니다. 개인용 로컬 범위를 유지하며 노트·자동 요약·클라우드 인프라는 추가하지 않습니다.
+Phase 1~4와 SIWC 구현·자동 검증·Chrome mock QA 및 실제 Plus 핵심 E2E를 마쳤습니다. 설치 Chrome에서 이번 Phase 4 변경의 화면 QA, Pro 계정과 실제 한도·인증 오류 조건의 QA가 남아 있습니다. 개인용 로컬 범위를 유지하며 노트·자동 요약·클라우드 인프라는 추가하지 않습니다.

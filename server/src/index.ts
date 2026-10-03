@@ -1,6 +1,6 @@
 import { createApp } from './app.js';
 import { DEFAULT_AI_PROVIDER, OpenAIApiKeyProvider, selectAiProvider } from './ai-provider.js';
-import { createNaverSearch } from './naver.js';
+import { createMetadataEnricher } from './news-metadata.js';
 import { createRelatedService } from './related.js';
 import { createChatGPT } from '@siwc/local';
 import { ChatGPTPlanProvider } from './chatgpt-plan.js';
@@ -21,9 +21,8 @@ const plan = providerId === 'chatgpt-plan' ? new ChatGPTPlanProvider(createChatG
   credentialEncryption: createWindowsCredentialEncryption(),
 })) : undefined;
 const provider = selectAiProvider(providerId, new OpenAIApiKeyProvider(llmConfig), plan);
-const app = createApp({ extensionId, providerId: provider.id }, provider.explain, createRelatedService(createNaverSearch({
-  clientId: process.env.NAVER_CLIENT_ID?.trim() || '', clientSecret: process.env.NAVER_CLIENT_SECRET?.trim() || '',
-}), provider.relatedLlm), plan);
+const related = plan ? createRelatedService(plan.newsSearch, plan.relatedLlm, { combinedSearch: true, enrich: createMetadataEnricher() }) : undefined;
+const app = createApp({ extensionId, providerId: provider.id }, provider.explain, related, plan);
 app.requestTimeout = 15_000;
 app.headersTimeout = 10_000;
 app.on('error', () => { console.error('Easynews server could not start. Check whether port 3000 is in use.'); process.exitCode = 1; });

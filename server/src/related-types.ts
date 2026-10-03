@@ -9,7 +9,8 @@ export interface RelationDecision { index: number; relation: Relation; relationR
 export interface RelatedArticle { title: string; url: string; source: string; publishedAt?: string; relationReason: string }
 export type RelatedWarning = 'FINGERPRINT_FALLBACK' | 'RELATION_CLASSIFICATION_FAILED' | 'TIME_UNKNOWN' | 'RULE_BASED';
 export interface RelatedResult { followUps: RelatedArticle[]; background: RelatedArticle[]; warnings: RelatedWarning[] }
-export type Related = (input: RelatedInput, signal: AbortSignal) => Promise<RelatedResult>;
+export type RelatedStage = 'searching' | 'checking' | 'classifying';
+export type Related = (input: RelatedInput, signal: AbortSignal, onProgress?: (stage: RelatedStage) => void) => Promise<RelatedResult>;
 export type SearchNews = (query: string, signal: AbortSignal) => Promise<NewsCandidate[]>;
 export interface RelatedLlm {
   fingerprint(input: RelatedInput, signal: AbortSignal): Promise<EventFingerprint>;

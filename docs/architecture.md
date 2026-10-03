@@ -40,21 +40,23 @@ Readability는 clone DOM에서만 실행합니다. metadata와 공통 article �
 
 ## Phase 4 — Related News
 
-관련 뉴스 버튼에서 `POST /api/related`를 명시 호출합니다. 제목·URL/canonical·출처·시각·최대 1,200자 도입부만 받으며 선택 문장·전문·history를 받지 않습니다. Event Fingerprint → 최대 3회 NAVER 검색 → HTML/metadata 정규화 → URL/제목 중복·현재 기사 제외 → 상수 기반 점수 → 상위 12개 → 관계 판정 → 시간 검증 → 출처 제한 → 두 그룹의 순서입니다.
+관련 뉴스 버튼에서 `POST /api/related`를 호출합니다. 제목·URL/canonical·출처·시각·최대 1,200자 도입부만 받으며 선택 문장·전문·history를 받지 않습니다. Event Fingerprint → OpenAIWebSearchProvider → 구조화된 results/sources → 현재 기사·URL/제목 중복 제거 → deterministic ranking → 상위 12개 metadata enrichment → temporal 제약 계산 → 별도 GPT 관계 판정 → 시간 강제 검증 → 출처 다양성 → followUps / background 순서입니다. 보강한 제목도 다시 중복 제거·순위 검증합니다.
 
-AI Provider가 fingerprint·후속/배경/related/irrelevant를 판정하고 동일한 runtime validation을 적용합니다. API Key 경로는 strict JSON schema를 사용하며 plan 경로는 공식 SDK 인터페이스에 맞춰 schema 지시문을 사용합니다. 일반 AI 호출 실패는 보수적 fallback을 제공하고 plan 인증·권한·한도·보호 저장소 오류는 직접 안내합니다. 과거·같은 시각·unknown을 후속으로 표시하지 않고, 날짜만 있는 값도 시각 미확인으로 처리합니다. 그룹별 최대 4개·출처당 최대 2개이며 빈 그룹을 억지로 채우지 않습니다. 결과는 제목·출처 hostname·원문 링크·시각·최대 180자 관계 이유뿐입니다. 검색 description은 후보 판정에만 쓰고 반환하지 않습니다.
+`SearchNews(query, signal)` 계약은 유지합니다. 실제 plan 검색은 제목·사건·주체·키워드·최대 3개 검색어를 한 요청에 묶어 중복 plan 호출을 줄입니다. 검색과 fingerprint/classification은 별도 Responses 요청이며 GPT-6 Luna · Medium을 사용합니다. 검색 tools는 `web_search`·`search_context_size:low`, `tool_choice:required`, 두 results/sources include를 지정합니다. `store:false`, `stream:true`, 기본 return_token_budget을 유지하며 `response.completed`와 완료된 web_search_call이 있어야 성공입니다. 최종 AI 답변 본문은 후보로 파싱하지 않습니다. 표시용 모델 목록 누락으로 다른 모델을 선택하지 않습니다.
 
-검색 provider는 서버 환경변수로만 인증합니다. 외부 기사 원문을 서버에서 다시 가져오지 않으며 캐시·DB·파일·읽기 이력은 없습니다. 요청 종료 후 fingerprint·후보·판정을 보관하지 않습니다. 결과는 패널 메모리·DOM에만 두고 기사·탭 이동·패널 종료 시 취소·제거합니다. 설명 오류와 관련 검색 오류 상태는 독립적입니다.
+상위 12개 URL에서만 일반 JSON-LD datePublished → article:published_time → publication meta → time[datetime] 순으로 발행 시각을 확인합니다. 명시적인 시각·시간대가 없는 값은 unknown이며 날짜를 만들지 않습니다. 동시에 3개, 페이지당 5초·최대 512 KiB HTML을 메모리에서 일시 처리하고 제목·언론사·발행 시각만 남깁니다. 서버에서 후보 본문 추출·저장·캐시·history를 만들지 않습니다. metadata fetch 실패는 전체 검색 실패가 아닙니다. 공개 IP·표준 HTTP(S) 포트만 허용하고 DNS 결과를 소켓에 고정하며 모든 redirect를 재검증합니다. Cookie·Authorization을 페이지에 보내지 않습니다.
 
-향후 캐시가 필요해도 최소 메타데이터와 짧은 TTL만 사용하고 원문 본문은 보관하지 않습니다. 설명·탐색 결과를 장기 저장하거나 사용자 학습 이력으로 축적하지 않습니다.
+관계 요청에는 현재 기사 제목·짧은 문맥, 사건, 후보 index·title·source·publishedAt·temporal 제약만 보냅니다. 후보 본문과 검색 answer/snippet은 보내지 않습니다. plan JSON schema 지시문과 runtime validation을 유지하고 일반 AI 실패는 보수적 fallback, 인증·권한·한도·보호 저장소 오류는 직접 안내합니다. 과거·같은 시각·unknown은 후속으로 표시하지 않으며 같은 발표의 재보도를 후속이나 배경으로 채우지 않습니다. 그룹별 최대 4개·출처당 최대 2개, 제목·언론사·원문 링크·확인된 시각·180자 관계 이유만 반환합니다.
+
+관련 endpoint는 120초, 검색 stage는 90초, fingerprint/classification 각각 45초, 패널은 135초 상한입니다. 전체 endpoint 상한이 각 단계보다 우선합니다. 패널은 opt-in NDJSON의 searching/checking/classifying 이벤트와 최종 result/error를 받고 기존 JSON 클라이언트도 지원합니다. 문장 설명의 30초/패널 40초는 유지합니다. 요청 종료·기사 이동·패널 종료 후 후보·응답을 보관하지 않으며 취소된 요청의 진행 표시와 결과도 버립니다. API Key 설명 Provider는 유지하고 관련 검색의 별도 API Key/NAVER fallback은 없습니다.
 
 ## Sign in with ChatGPT 연결
 
-`AiProvider`는 기존 API Key Provider와 ChatGPTPlanProvider를 분리합니다. 실제 Plus/Pro E2E 성공 전까지 기본값은 API Key이며, `AI_PROVIDER=chatgpt-plan`으로 API Key 없이 선택할 수 있습니다. 공급자 오류로 과금 경로를 자동 변경하지 않습니다.
+`AiProvider`는 기존 API Key Provider와 ChatGPTPlanProvider를 분리합니다. 기본값은 ChatGPT plan이며, `AI_PROVIDER=chatgpt-plan`으로 API Key 없이 선택할 수 있습니다. 공급자 오류로 과금 경로를 자동 변경하지 않습니다.
 
 공식 `@siwc/local`이 dynamic registration·fresh state/nonce/PKCE·loopback callback·서명 검증·granted scope·refresh serialization·revocation을 담당합니다. 호스트 ID는 별도 UUID metadata이며 issued client ID·계정·credential은 Windows DPAPI CurrentUser로 암호화된 SDK 저장소에 둡니다. 패널은 토큰을 받지 않고 연결 상태·제한된 계정 표시만 받습니다. OAuth credential과 뉴스 임시 데이터는 분리하며 보호 저장소 실패 시 평문 fallback을 사용하지 않습니다.
 
-plan 모델은 공식 계정 카탈로그에서 선택합니다. HTTP Responses 요청은 배열 input, instructions, store:false, stream:true만 사용하며 completed까지 SSE를 누적한 뒤 기존 JSON 계약으로 반환합니다. 한도 오류는 Manage usage로 연결하고 새 plan 요청을 차단합니다. 연결 변경·해제는 진행 요청과 패널 응답을 정리합니다. 상세 contract·라이선스·검증 및 미실행 실제 QA는 [SIWC QA](siwc-qa.md)를 참조하세요.
+plan 모델은 `gpt-6-luna`로 명시하며 discovery는 유지합니다. 문장 설명은 xhigh, Phase 4는 medium입니다. HTTP Responses 요청은 배열 input·instructions·reasoning·store:false·stream:true이며 검색에만 tools/include를 추가합니다. SDK는 completed까지 확인하고 검색 item 이벤트의 metadata만 request-local로 소비합니다. 한도 오류는 Manage usage로 연결하고 새 plan 요청을 차단합니다. 연결 변경·해제는 진행 요청과 패널 응답을 정리합니다. 상세 contract·라이선스·검증 및 미실행 실제 QA는 [SIWC QA](siwc-qa.md)를 참조하세요.
 
 ## 공식 API 근거
 
@@ -64,5 +66,6 @@ plan 모델은 공식 계정 카탈로그에서 선택합니다. HTTP Responses 
 - [OpenAI Responses API](https://developers.openai.com/api/reference/cli/resources/responses/methods/create): 요청·출력·저장 제어
 - [GPT-4.1 mini](https://developers.openai.com/api/docs/models/gpt-4.1-mini): 기본 모델의 Responses 지원
 - [Mozilla Readability](https://github.com/mozilla/readability): clone DOM과 추출 결과
-- [NAVER 뉴스 검색](https://developers.naver.com/docs/serviceapi/search/news/news.md): JSON endpoint·인증·검색 metadata
+- [OpenAI Web search](https://developers.openai.com/api/docs/guides/tools-web-search): hosted 검색·검색 context·구조화된 sources
+- [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna): Phase 4 medium reasoning
 - [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs): Responses text.format의 strict JSON schema

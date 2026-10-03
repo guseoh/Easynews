@@ -1,6 +1,6 @@
 import { stateKey, type TabState } from './state';
 import { ExplanationSession, MAX_EXPLAIN_SELECTION, requestExplanation, type ExplainMode } from './explanation';
-import { requestRelated, WARNING_MESSAGES, type RelatedArticle } from './related-news';
+import { requestRelated, RELATED_PROGRESS, WARNING_MESSAGES, type RelatedArticle } from './related-news';
 import { mountChatGPTConnection } from './chatgpt-connection';
 
 const title = document.querySelector<HTMLHeadingElement>('#page-title')!;
@@ -104,9 +104,10 @@ async function findRelated() {
   if (closed || relatedBusy || relatedButton.disabled || !article) return;
   relatedBusy = true; relatedRetry.hidden = true;
   followUps.replaceChildren(); backgroundNews.replaceChildren();
-  relatedStatus.textContent = '이어지는 기사와 배경 기사를 찾고 있습니다…'; updateButtons();
+  relatedStatus.textContent = RELATED_PROGRESS.searching; updateButtons();
   try {
-    const result = await relatedSession.run((signal) => requestRelated(article, AbortSignal.any([signal, AbortSignal.timeout(45_000)])));
+    const result = await relatedSession.run((signal) => requestRelated(article, AbortSignal.any([signal, AbortSignal.timeout(135_000)]), undefined,
+      (stage) => { if (!closed && !signal.aborted) relatedStatus.textContent = RELATED_PROGRESS[stage]; }));
     if (result === undefined) return;
     relatedBusy = false;
     renderNews(followUps, result.followUps); renderNews(backgroundNews, result.background);

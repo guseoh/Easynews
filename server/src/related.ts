@@ -1,24 +1,37 @@
 import { deduplicate, enforceTime, fallbackFingerprint, fallbackRelations, rankCandidates, sourceDiversity } from './news-ranking.js';
 import { ApiError } from './explain.js';
+import type { EnrichNews } from './news-metadata.js';
 import { RELATED_LIMITS, dateTime, validateFingerprint, validateRelations, type Related, type RelatedArticle, type RelatedLlm, type RelatedWarning, type SearchNews } from './related-types.js';
 
-export function createRelatedService(search: SearchNews, llm?: RelatedLlm): Related {
-  return async (input, signal) => {
+export function createRelatedService(search: SearchNews, llm?: RelatedLlm, options: { combinedSearch?: boolean; enrich?: EnrichNews } = {}): Related {
+  return async (input, signal, onProgress) => {
     // No cache or history: all features, candidates and decisions live in this request.
     const child = new AbortController();
     const requestSignal = AbortSignal.any([signal, child.signal]);
     const warnings: RelatedWarning[] = [];
     try {
       requestSignal.throwIfAborted();
+      onProgress?.('searching');
       let fingerprint = fallbackFingerprint(input);
       if (llm) {
         try { fingerprint = validateFingerprint(await llm.fingerprint(input, requestSignal)); }
         catch (error) { requestSignal.throwIfAborted(); if (error instanceof ApiError && error.code.startsWith('CHATGPT_') && error.code !== 'CHATGPT_FAILED') throw error; warnings.push('FINGERPRINT_FALLBACK'); }
       } else warnings.push('RULE_BASED');
-      const queries = [...new Set(fingerprint.searchQueries)].slice(0, RELATED_LIMITS.queries);
+      // The existing query interface remains intact. Hosted search receives all
+      // event metadata once, rather than three expensive parallel plan requests.
+      const queries = options.combinedSearch ? [JSON.stringify({ title: input.title, event: fingerprint.event,
+        entities: fingerprint.entities, organizations: fingerprint.organizations, people: fingerprint.people,
+        keywords: fingerprint.keywords, queries: fingerprint.searchQueries, publishedAt: input.publishedAt })]
+        : [...new Set(fingerprint.searchQueries)].slice(0, RELATED_LIMITS.queries);
       const batches = await Promise.all(queries.map((query) => search(query, requestSignal)));
       requestSignal.throwIfAborted();
-      const candidates = rankCandidates(deduplicate(batches.flat(), input), fingerprint, input);
+      onProgress?.('checking');
+      let candidates = rankCandidates(deduplicate(batches.flat(), input), fingerprint, input);
+      if (options.enrich && candidates.length) {
+        candidates = rankCandidates(deduplicate(await options.enrich(candidates, requestSignal), input), fingerprint, input);
+      }
+      requestSignal.throwIfAborted();
+      onProgress?.('classifying');
       let decisions = fallbackRelations(input, candidates);
       if (llm && candidates.length) {
         try { decisions = validateRelations({ relations: await llm.classify(input, fingerprint, candidates, requestSignal) }, candidates.length); }

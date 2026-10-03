@@ -25,6 +25,10 @@ export async function streamResponse(
       ...(options.instructions !== undefined ? { instructions: options.instructions } : {}),
       // Easynews modification, 2026-10-03: forward explicit reasoning effort (upstream license).
       ...(options.reasoning !== undefined ? { reasoning: { effort: options.reasoning.effort } } : {}),
+      // Easynews modification, 2026-10-03: forward only optional web-search controls.
+      ...(options.tools !== undefined ? { tools: options.tools } : {}),
+      ...(options.tool_choice !== undefined ? { tool_choice: options.tool_choice } : {}),
+      ...(options.include !== undefined ? { include: options.include } : {}),
       store: false,
       stream: true,
     }),
@@ -68,6 +72,8 @@ export async function streamResponse(
     } else if (event.type === "response.completed") {
       completed = true;
     }
+    // Easynews modification, 2026-10-03: request-local metadata consumer, after error checks.
+    options.onEvent?.(event);
   };
 
   const line = (value: string) => {

@@ -31,11 +31,13 @@ function send(response: ServerResponse, status: number, body: unknown) {
   response.end(JSON.stringify(body));
 }
 
-export function createApp(config: { extensionId: string; providerId?: string }, explain: Explain, related?: Related, plan?: ChatGPTPlanProvider) {
+export function createApp(config: { extensionId: string; providerId?: string; relatedTimeoutMs?: number }, explain: Explain, related?: Related, plan?: ChatGPTPlanProvider) {
   let active = 0; // A count only; no request text or response cache is retained.
   const origin = `chrome-extension://${config.extensionId}`;
   return createServer(async (request, response) => {
     const controller = new AbortController();
+    let relatedStream = false;
+    const streamLine = (value: unknown) => { if (!response.destroyed && !response.writableEnded) response.write(JSON.stringify(value) + '\n'); };
     response.on('close', () => { if (!response.writableEnded) controller.abort(); });
     try {
       if (!/^127\.0\.0\.1:\d+$/.test(request.headers.host || '')) {
@@ -101,9 +103,24 @@ export function createApp(config: { extensionId: string; providerId?: string }, 
       active++;
       try {
         if (request.url === '/api/related') {
-          if (!related) throw new ApiError(503, 'NEWS_SEARCH_NOT_CONFIGURED', '뉴스 검색 API 설정이 필요합니다.');
-          const result = await related(input as ReturnType<typeof validateRelatedInput>, controller.signal);
-          if (!controller.signal.aborted) send(response, 200, result);
+          if (!related) throw new ApiError(503, 'NEWS_SEARCH_NOT_CONFIGURED', '관련 뉴스 검색에는 ChatGPT plan 연결이 필요합니다.');
+          relatedStream = request.headers.accept === 'application/x-ndjson';
+          if (relatedStream) response.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store' });
+          let timer: ReturnType<typeof setTimeout> | undefined;
+          try {
+            const deadline = new Promise<never>((_resolve, reject) => {
+              timer = setTimeout(() => {
+                const error = new ApiError(504, 'RELATED_TIMEOUT', '관련 뉴스 요청 시간이 초과됐습니다.');
+                reject(error); controller.abort(error);
+              }, config.relatedTimeoutMs ?? 120_000);
+            });
+            const result = await Promise.race([related(input as ReturnType<typeof validateRelatedInput>, controller.signal,
+              relatedStream ? (stage) => streamLine({ stage }) : undefined), deadline]);
+            if (!controller.signal.aborted) {
+              if (relatedStream) { streamLine({ result }); response.end(); }
+              else send(response, 200, result);
+            }
+          } finally { clearTimeout(timer); }
           return;
         }
         const answer = await explain(input as ReturnType<typeof validateInput>, controller.signal);
@@ -116,7 +133,9 @@ export function createApp(config: { extensionId: string; providerId?: string }, 
     } catch (error) {
       // Never log request bodies, provider error bodies, selected text, or answers.
       const failure = error instanceof ApiError ? error : new ApiError(500, 'SERVER_ERROR', '요청을 처리하지 못했습니다. 다시 시도해 주세요.');
-      send(response, failure.status, { error: { code: failure.code, message: failure.message } });
+      const body = { error: { code: failure.code, message: failure.message } };
+      if (relatedStream) { streamLine(body); response.end(); }
+      else send(response, failure.status, body);
     }
   });
 }

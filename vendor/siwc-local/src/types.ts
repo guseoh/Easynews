@@ -78,6 +78,11 @@ export interface StreamResponseOptions {
   instructions?: string;
   // Easynews modification, 2026-10-03: optional Responses reasoning effort (upstream license).
   reasoning?: { effort: 'none' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' };
+  // Easynews modification, 2026-10-03: opt-in hosted web search and structured SSE events.
+  tools?: { type: 'web_search'; search_context_size: 'low' }[];
+  tool_choice?: 'required';
+  include?: ('web_search_call.results' | 'web_search_call.action.sources')[];
+  onEvent?: (event: Record<string, unknown>) => void;
   signal?: AbortSignal;
   onDelta?: (delta: string) => void;
 }

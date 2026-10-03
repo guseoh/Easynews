@@ -51,6 +51,9 @@ test('Phase 4 fingerprint/classification retain bounded metadata and runtime val
   assert.equal(result[0].relation, 'background');
   assert.deepEqual(Object.keys(JSON.parse(requests[0].input[0].content)), ['title', 'excerpt']);
   const classification = JSON.parse(requests[1].input[0].content);
+  assert.ok(requests.every((request) => request.reasoning.effort === 'medium'));
+  assert.equal(classification.candidates[0].temporal, 'before');
+  assert.equal(classification.candidates[0].description, undefined);
   assert.equal(classification.current.excerpt.length <= 600, true);
   assert.equal(JSON.stringify(classification).includes('https://'), false);
   assert.match(requests[1].instructions, /schema/);
