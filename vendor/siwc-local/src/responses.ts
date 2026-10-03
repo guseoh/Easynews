@@ -23,6 +23,8 @@ export async function streamResponse(
       model: options.model,
       input: input.map((message) => ({ role: message.role, content: message.content })),
       ...(options.instructions !== undefined ? { instructions: options.instructions } : {}),
+      // Easynews modification, 2026-10-03: forward explicit reasoning effort (upstream license).
+      ...(options.reasoning !== undefined ? { reasoning: { effort: options.reasoning.effort } } : {}),
       store: false,
       stream: true,
     }),

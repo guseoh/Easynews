@@ -1,5 +1,5 @@
 import { createApp } from './app.js';
-import { OpenAIApiKeyProvider, selectAiProvider } from './ai-provider.js';
+import { DEFAULT_AI_PROVIDER, OpenAIApiKeyProvider, selectAiProvider } from './ai-provider.js';
 import { createNaverSearch } from './naver.js';
 import { createRelatedService } from './related.js';
 import { createChatGPT } from '@siwc/local';
@@ -15,11 +15,12 @@ const llmConfig = {
   apiKey: process.env.OPENAI_API_KEY?.trim() || '',
   model: process.env.OPENAI_MODEL?.trim() || 'gpt-4.1-mini',
 };
-const plan = process.env.AI_PROVIDER?.trim() === 'chatgpt-plan' ? new ChatGPTPlanProvider(createChatGPT({
+const providerId = process.env.AI_PROVIDER?.trim() || DEFAULT_AI_PROVIDER;
+const plan = providerId === 'chatgpt-plan' ? new ChatGPTPlanProvider(createChatGPT({
   appName: 'Easynews', appId: 'easynews', redirectPort: 0, sendHostId: true,
   credentialEncryption: createWindowsCredentialEncryption(),
 })) : undefined;
-const provider = selectAiProvider(process.env.AI_PROVIDER, new OpenAIApiKeyProvider(llmConfig), plan);
+const provider = selectAiProvider(providerId, new OpenAIApiKeyProvider(llmConfig), plan);
 const app = createApp({ extensionId, providerId: provider.id }, provider.explain, createRelatedService(createNaverSearch({
   clientId: process.env.NAVER_CLIENT_ID?.trim() || '', clientSecret: process.env.NAVER_CLIENT_SECRET?.trim() || '',
 }), provider.relatedLlm), plan);

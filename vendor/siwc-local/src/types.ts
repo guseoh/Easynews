@@ -76,6 +76,8 @@ export interface StreamResponseOptions {
   model: string;
   input: string | ResponseInputMessage[];
   instructions?: string;
+  // Easynews modification, 2026-10-03: optional Responses reasoning effort (upstream license).
+  reasoning?: { effort: 'none' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' };
   signal?: AbortSignal;
   onDelta?: (delta: string) => void;
 }

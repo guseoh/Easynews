@@ -1,16 +1,10 @@
-import { ChatGPTError, CHATGPT_USAGE_URL, type ChatGPTClient, type ChatGPTModel } from '@siwc/local';
+import { ChatGPTError, CHATGPT_USAGE_URL, type ChatGPTClient } from '@siwc/local';
 import type { AiProvider } from './ai-provider.js';
 import { ApiError, createPrompt, MAX_ANSWER_LENGTH } from './explain.js';
 import { createRelatedTaskAdapter } from './related-llm.js';
 
-export function selectPlanModel(models: ChatGPTModel[]): string {
-  const eligible = models.filter((model) => model.slug.trim() && !/image|audio|video|realtime|whisper|tts|embedding|moderation/i.test(model.slug));
-  const chosen = eligible.find((model) => /(?:^|-)luna(?:-|$)/i.test(model.slug))
-    ?? eligible.find((model) => /(?:^|-)mini(?:-|$)/i.test(model.slug))
-    ?? eligible.find((model) => /(?:^|-)sol(?:-|$)/i.test(model.slug)) ?? eligible[0];
-  if (!chosen) throw new ApiError(503, 'CHATGPT_NO_MODEL', '이 계정에서 사용할 수 있는 설명 모델이 없습니다.');
-  return chosen.slug;
-}
+export const DEFAULT_CHATGPT_MODEL = 'gpt-6-luna';
+export const DEFAULT_CHATGPT_REASONING_EFFORT = 'xhigh';
 
 export function planError(error: unknown): ApiError {
   if (error instanceof ApiError) return error;
@@ -49,8 +43,9 @@ export class ChatGPTPlanProvider implements AiProvider {
     if (this.model) return this.model;
     if (!this.modelRequest) {
       const epoch = this.epoch;
-      const pending = this.client.listModels({ signal: AbortSignal.timeout(12_000) }).then((models) => {
-        const model = selectPlanModel(models);
+      const pending = this.client.listModels({ signal: AbortSignal.timeout(12_000) }).then(() => {
+        // The display catalog is not an access whitelist. Responses validates the pinned model.
+        const model = DEFAULT_CHATGPT_MODEL;
         if (epoch !== this.epoch) throw new ApiError(499, 'REQUEST_CANCELLED', '연결이 변경됐습니다.');
         this.model = model; return model;
       }).finally(() => { if (this.modelRequest === pending) this.modelRequest = undefined; });
@@ -68,7 +63,7 @@ export class ChatGPTPlanProvider implements AiProvider {
       if (!session.sharing) throw new ApiError(401, 'CHATGPT_SIGN_IN_REQUIRED', 'AI 요청 전에 ChatGPT plan을 연결하고 승인해 주세요.');
       const model = await this.discoverModel();
       let received = 0;
-      const result = await this.client.streamResponse({ model, instructions, input: [{ role: 'user', content: input }],
+      const result = await this.client.streamResponse({ model, reasoning: { effort: DEFAULT_CHATGPT_REASONING_EFFORT }, instructions, input: [{ role: 'user', content: input }],
         signal: AbortSignal.any([signal, timeout]), onDelta(delta) {
           received += delta.length;
           if (received > limit) throw new Error('Bounded output exceeded.');

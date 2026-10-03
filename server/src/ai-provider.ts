@@ -3,6 +3,7 @@ import { createRelatedLlm } from './related-llm.js';
 import type { RelatedLlm } from './related-types.js';
 
 export type AiProviderId = 'api-key' | 'chatgpt-plan';
+export const DEFAULT_AI_PROVIDER: AiProviderId = 'chatgpt-plan';
 export interface AiProvider {
   readonly id: AiProviderId;
   readonly explain: Explain;
@@ -19,9 +20,8 @@ export class OpenAIApiKeyProvider implements AiProvider {
   }
 }
 
-// Keep the migration default until actual ChatGPT plan E2E verification.
 export function selectAiProvider(value: string | undefined, apiKey: AiProvider, chatgptPlan?: AiProvider): AiProvider {
-  const id = value?.trim() || 'api-key';
+  const id = value?.trim() || DEFAULT_AI_PROVIDER;
   if (id === 'api-key') return apiKey;
   if (id === 'chatgpt-plan' && chatgptPlan) return chatgptPlan;
   throw new Error('AI_PROVIDER must be api-key or an available chatgpt-plan provider.');

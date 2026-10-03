@@ -4,7 +4,7 @@
 
 **Easynews는 기사 원문을 저장·재배포하지 않고, 사용자가 현재 읽고 있는 기사에서 요청한 최소한의 텍스트만 일시적으로 처리합니다. 관련 뉴스는 제목·출처·링크 중심으로 제공하고 원문은 항상 언론사 페이지에서 읽도록 합니다.**
 
-**Phase 1 — Extension Foundation**, **Phase 2 — AI Explanation**, **Phase 3 — Article Context**, **Phase 4 — Related News**를 구현했습니다. 공식 **Sign in with ChatGPT + ChatGPT plan** 경로도 추가했으며 실제 Plus/Pro E2E는 아직 검증하지 않았습니다. 기본 Provider는 실제 plan E2E 성공 후 변경하기로 한 조건에 따라 API Key로 유지합니다. 자동 검증·Chrome fixture와 실제 환경 QA를 구분합니다.
+**Phase 1 — Extension Foundation**, **Phase 2 — AI Explanation**, **Phase 3 — Article Context**, **Phase 4 — Related News**를 구현했습니다. 공식 **Sign in with ChatGPT + ChatGPT plan** 경로는 실제 Plus의 핵심 E2E QA를 통과했습니다. 사용자 요청에 따라 기본 Provider는 ChatGPT plan이며 모델은 **GPT-6 Luna · Extra High**입니다. Pro 및 실제 NAVER 검색·관계 판정은 미검증입니다. 자동 검증·Chrome fixture와 실제 환경 QA를 구분합니다.
 
 - Chrome Manifest V3 확장 및 Side Panel
 - 확장 아이콘 실행 시 현재 페이지 제목·URL 확인
@@ -49,7 +49,7 @@ npm test
 ## ChatGPT plan으로 AI 서버 실행
 
 1. `server/.env.example`을 `server/.env`로 복사합니다.
-2. `.env`에 `AI_PROVIDER=chatgpt-plan`을 설정합니다. 이 경로는 `OPENAI_API_KEY`·API credit 설정을 요구하지 않습니다. 자격을 갖춘 Plus/Pro 계정과 plan 사용 승인이 필요합니다.
+2. 기본값 `AI_PROVIDER=chatgpt-plan`을 사용합니다. 이 경로는 `OPENAI_API_KEY`·API credit 설정을 요구하지 않습니다. 자격을 갖춘 Plus/Pro 계정과 plan 사용 승인이 필요합니다.
 3. `chrome://extensions`의 Easynews 카드에 표시된 32자 ID를 `EASYNEWS_EXTENSION_ID`에 입력합니다.
 4. Windows에서 같은 사용자 계정으로 실행합니다. 다른 OS의 보호 저장소는 이번 구현에서 지원하지 않습니다.
 5. 저장소 루트에서 다음 명령을 실행합니다.
@@ -60,13 +60,13 @@ npm run start:server
 
 서버는 `http://127.0.0.1:3000`에서만 실행됩니다. 환경변수를 바꿨다면 서버를 재시작합니다. 빌드 후 확장 관리 화면에서 Easynews를 새로고침하고, 뉴스 페이지도 새로고침합니다.
 
-Side Panel의 **Continue with ChatGPT**를 누르고 시스템 브라우저에서 계정과 plan 사용 승인을 완료합니다. **ChatGPT 연결됨 · Using ChatGPT plan** 표시 후 세 설명 모드와 관련 뉴스 AI 판정을 사용합니다. 현재 계정에서 모델을 조회해 Luna 계열 → mini → Sol → 카탈로그 순서의 텍스트 모델 후보로 선택합니다. 사용 가능한 모델이 없으면 오류를 표시하고 임의 slug로 요청하지 않습니다.
+Side Panel의 **Continue with ChatGPT**를 누르고 시스템 브라우저에서 계정과 plan 사용 승인을 완료합니다. **ChatGPT 연결됨 · Using ChatGPT plan** 표시 후 세 설명 모드와 관련 뉴스 AI 판정을 사용합니다. 모델은 `gpt-6-luna`, `reasoning.effort`는 `xhigh`(Extra High)로 명시합니다. 계정의 모델 discovery는 유지하지만 표시용 목록에 모델이 없다는 이유로 다른 모델로 전환하지 않습니다. 접근 권한은 실제 Responses 요청에서 확인하며 거부되면 오류를 안내합니다. 실제 Plus 호출에서 요청 모델·effort와 `response.completed`를 확인했습니다.
 
 **Manage usage**는 공식 ChatGPT Settings → Usage로 연결됩니다. 플랜·앱 한도 오류는 일반 연결 실패와 구분하며 새 plan 요청을 멈춥니다. 한도를 확인한 뒤 **연결 다시 확인**을 누르면 명시적으로 재확인합니다. **Disconnect**는 진행 요청을 취소하고 원격 renewable session 해제를 시도한 뒤 로컬 토큰을 제거합니다. 원격 해제를 확인하지 못하면 패널에서 안내합니다. 연결 선택 메뉴에서 저장된 계정에 다시 로그인하거나 다른 계정을 추가할 수 있습니다.
 
 ### API Key migration/fallback
 
-실제 Plus/Pro E2E 검증 전까지 `.env.example`과 코드 기본값은 `AI_PROVIDER=api-key`입니다. 이 경로를 명시적으로 선택한 경우에만 `OPENAI_API_KEY`를 로컬 `.env`에 설정합니다. `OPENAI_MODEL` 기본값은 `gpt-4.1-mini`이며 Responses 지원·계정 접근 권한을 확인하세요. plan 요청 실패 시 API Key 과금으로 자동 전환하지 않습니다. 기존 Provider 삭제와 기본값 변경은 실제 QA 완료 후 수행합니다.
+기존 API Key Provider는 `AI_PROVIDER=api-key`로 명시적으로 선택할 수 있습니다. 이 경로를 선택한 경우에만 `OPENAI_API_KEY`를 로컬 `.env`에 설정합니다. `OPENAI_MODEL` 기본값은 `gpt-4.1-mini`이며 Responses 지원·계정 접근 권한을 확인하세요. plan 요청 실패 시 API Key 과금으로 자동 전환하지 않습니다.
 
 문장을 1~2,000자 선택한 뒤 **쉽게 설명 / 왜 그런가 / 배경 설명**을 누릅니다. 버튼을 누를 때 선택 문장·기사 제목(최대 300자)·필요한 주변 문맥(최대 1,600자)만 서버와 OpenAI에 전달합니다. 도입부·URL·전문은 설명 요청에 넣지 않습니다. 긴 선택을 자동으로 기사 전체 설명으로 바꾸지 않으며, 2,000자를 넘으면 설명 버튼을 비활성화합니다. 설명은 일반 텍스트로 표시하고, 오류가 나면 **설명 다시 시도**를 제공합니다. 자동 재시도는 하지 않습니다.
 
@@ -110,7 +110,7 @@ Phase 3/4도 이해·탐색에 필요한 최소 문맥·메타데이터만 일�
 
 ## 검증 상태
 
-검증 결과는 [Phase 1 QA](docs/phase-1-qa.md), [Phase 2 QA](docs/phase-2-qa.md), [Phase 3 QA](docs/phase-3-qa.md), [Phase 4 QA](docs/phase-4-qa.md), [SIWC QA](docs/siwc-qa.md)를 참조하세요. 최신 전체 자동 테스트는 113개 중 112개 통과, Unix 전용 SDK 테스트 1개 건너뜀입니다. 실제 Plus의 핵심 E2E QA를 통과했습니다. 사용자가 설치 확장에서 OAuth·세 설명 모드·선택 변경·Manage usage를 수동 확인했고, 서버에서 plan 승인·모델 discovery·실제 Responses 완료·Disconnect 후 요청 차단·재로그인과 재시작 복구를 검증했습니다. 실제 NAVER 검색 및 Phase 4 관계 판정은 API 미설정으로 미검증입니다. 기본 Provider는 API Key로 유지합니다.
+검증 결과는 [Phase 1 QA](docs/phase-1-qa.md), [Phase 2 QA](docs/phase-2-qa.md), [Phase 3 QA](docs/phase-3-qa.md), [Phase 4 QA](docs/phase-4-qa.md), [SIWC QA](docs/siwc-qa.md)를 참조하세요. 최신 전체 자동 테스트는 113개 중 112개 통과, Unix 전용 SDK 테스트 1개 건너뜀입니다. 실제 Plus의 핵심 E2E QA를 통과했습니다. 사용자가 설치 확장에서 OAuth·세 설명 모드·선택 변경·Manage usage를 수동 확인했고, 서버에서 plan 승인·모델 discovery·실제 Responses 완료·Disconnect 후 요청 차단·재로그인과 재시작 복구를 검증했습니다. 실제 NAVER 검색 및 Phase 4 관계 판정은 API 미설정으로 미검증입니다. 사용자 요청으로 기본 Provider를 ChatGPT plan으로 변경했습니다.
 
 ## 구조 및 다음 단계
 

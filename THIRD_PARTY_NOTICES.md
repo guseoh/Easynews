@@ -12,7 +12,7 @@ Easynews-authored source is MIT licensed. Third-party components retain their ow
 
 ## Sign in with ChatGPT DevKit
 
-The official `@siwc/local` 0.1.0 integration is vendored at `vendor/siwc-local` and used as a server workspace dependency, pinned to `f723814abdccec135b519c451fb6e1992ee5e933`. Copyright 2026 OpenAI. Licensed under the **Sign-in with ChatGPT DevKit Noncommercial License v1.0**, separately from Easynews's MIT source. Independently authored software calling its interface is distinguished from modifications to the DevKit in its license. Configuration changes retain the upstream license and are marked in `vendor/siwc-local/UPSTREAM.md`; SDK source and upstream tests are unchanged.
+The official `@siwc/local` 0.1.0 integration is vendored at `vendor/siwc-local` and used as a server workspace dependency, pinned to `f723814abdccec135b519c451fb6e1992ee5e933`. Copyright 2026 OpenAI. Licensed under the **Sign-in with ChatGPT DevKit Noncommercial License v1.0**, separately from Easynews's MIT source. Independently authored software calling its interface is distinguished from modifications to the DevKit in its license. Configuration changes and optional Responses reasoning-effort forwarding in `src/types.ts` and `src/responses.ts` retain the upstream license and are marked in `vendor/siwc-local/UPSTREAM.md`. Authentication, credential storage, and upstream tests are unchanged.
 
 - [Official repository](https://github.com/openai/sign-in-with-chatgpt-devkit)
 - [Exact license](https://github.com/openai/sign-in-with-chatgpt-devkit/blob/f723814abdccec135b519c451fb6e1992ee5e933/LICENSE)

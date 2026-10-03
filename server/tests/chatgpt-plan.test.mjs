@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ChatGPTError } from '@siwc/local';
-import { ChatGPTPlanProvider, selectPlanModel, planError } from '../dist/chatgpt-plan.js';
+import { ChatGPTPlanProvider, planError } from '../dist/chatgpt-plan.js';
 import { streamResponse } from '../../vendor/siwc-local/dist/responses.js';
 import { createRelatedService } from '../dist/related.js';
 import { createApp } from '../dist/app.js';
@@ -16,13 +16,13 @@ const article = { title: '한국은행 기준금리 동결', url: 'https://examp
 const fingerprint = { event: '금리 동결', entities: ['한국은행'], organizations: ['한국은행'], people: [], locations: [], keywords: ['금리', '동결'], searchQueries: ['한국은행 금리 동결'] };
 const candidate = { title: '한국은행 금리 동결 배경', url: 'https://example.test/background', source: 'example.test', publishedAt: '2026-10-01T00:00:00Z', description: '물가 상황' };
 
-test('model policy discovers Luna, lightweight fallback, server order, and no-model failure', () => {
-  const m = (slug) => ({ slug, displayName: slug });
-  assert.equal(selectPlanModel([m('future-sol'), m('future-luna')]), 'future-luna');
-  assert.equal(selectPlanModel([m('future-sol'), m('future-mini')]), 'future-mini');
-  assert.equal(selectPlanModel([m('other-text-model')]), 'other-text-model');
-  assert.throws(() => selectPlanModel([m('image-model')]), { code: 'CHATGPT_NO_MODEL' });
-  assert.throws(() => selectPlanModel([]), { code: 'CHATGPT_NO_MODEL' });
+test('model policy preserves the pinned model when omitted from the display catalog', async () => {
+  for (const models of [[{ slug: 'gpt-5.6-luna', displayName: 'Luna' }], []]) {
+    const provider = new ChatGPTPlanProvider(client({ listModels: async () => models }));
+    assert.equal((await provider.status()).model, 'gpt-6-luna');
+  }
+  const provider = new ChatGPTPlanProvider(client({ listModels: async () => { throw new ChatGPTError('network_error', ''); } }));
+  await assert.rejects(provider.explain({ mode: 'simple', articleTitle: '제목', selectedText: '선택' }, signal()), { code: 'CHATGPT_FAILED' });
 });
 
 test('three explanation modes preserve minimal inputs and use separate plan request options', async () => {
@@ -33,7 +33,8 @@ test('three explanation modes preserve minimal inputs and use separate plan requ
   for (const mode of ['simple', 'why', 'background']) assert.equal(await provider.explain({ mode, articleTitle: '제목', selectedText: '선택', surroundingContext: '주변' }, signal()), '설명');
   assert.equal(discoveries, 1);
   for (const options of requests) {
-    assert.equal(options.model, 'available-luna');
+    assert.equal(options.model, 'gpt-6-luna');
+    assert.deepEqual(options.reasoning, { effort: 'xhigh' });
     assert.deepEqual(JSON.parse(options.input[0].content), { articleTitle: '제목', selectedText: '선택', surroundingContext: '주변' });
     assert.equal(options.input[0].role, 'user');
     assert.equal(options.max_output_tokens, undefined);
@@ -101,6 +102,10 @@ test('official SSE builder sets store=false/stream=true and omits unsupported fi
   });
   assert.deepEqual(await streamResponse('synthetic', { model: 'discovered', instructions: '설명', input: [{ role: 'user', content: '최소 문맥' }] }, signal()), { text: '쉬운 설명' });
   assert.deepEqual(Object.keys(payload).sort(), ['model', 'input', 'instructions', 'store', 'stream'].sort());
+  assert.equal(payload.store, false); assert.equal(payload.stream, true);
+  await streamResponse('synthetic', { model: 'gpt-6-luna', reasoning: { effort: 'xhigh' }, input: '최소 문맥' }, signal());
+  assert.deepEqual(Object.keys(payload).sort(), ['model', 'input', 'reasoning', 'store', 'stream'].sort());
+  assert.deepEqual(payload.reasoning, { effort: 'xhigh' });
   assert.equal(payload.store, false); assert.equal(payload.stream, true);
 });
 

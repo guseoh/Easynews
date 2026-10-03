@@ -6,4 +6,6 @@ https://github.com/openai/sign-in-with-chatgpt-devkit/tree/f723814abdccec135b519
 
 Copyright 2026 OpenAI. All files here retain the Sign-in with ChatGPT DevKit Noncommercial License v1.0 in LICENSE. The upstream THIRD_PARTY_NOTICES.md is preserved verbatim; it inventories the larger DevKit, including fonts and assets not included here.
 
-2026-10-02 Easynews integration modifications: package.json build path and test script adapted; tsconfig.json extends the copied base config at ../tsconfig.base.json. No src or test file modifications. These configuration modifications retain the same Noncommercial License. The independent Easynews adapter code in server/ and extension/ is MIT licensed. No upstream fonts, React UI or branded assets are included.
+2026-10-02 Easynews integration modifications: package.json build path and test script adapted; tsconfig.json extends the copied base config at ../tsconfig.base.json. At this stage no src or test files were modified. These configuration modifications retain the same Noncommercial License. The independent Easynews adapter code in server/ and extension/ is MIT licensed. No upstream fonts, React UI or branded assets are included.
+
+2026-10-03 Easynews modifications: src/types.ts adds optional Responses reasoning effort; src/responses.ts forwards that explicit field in the request body. These two source modifications retain the same Noncommercial License and have dated comments. Authentication, credential storage, stream completion validation, and upstream tests are unchanged.

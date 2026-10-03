@@ -25,7 +25,7 @@
 - [DevKit 보호 저장소 계약](https://github.com/openai/sign-in-with-chatgpt-devkit/blob/f723814abdccec135b519c451fb6e1992ee5e933/docs/security.md)
 - [Windows DPAPI](https://learn.microsoft.com/en-us/dotnet/standard/security/how-to-use-data-protection)
 
-공식 `@siwc/local` 0.1.0은 private local workspace이므로 npm의 동명 패키지를 임의 설치하지 않았다. 공식 소스를 고정 버전으로 `vendor/siwc-local`에 보존하고 서버 workspace dependency로 사용한다. 소스·upstream 테스트는 수정하지 않았고 build/test script 및 tsconfig 경로 변경만 원래 Noncommercial License로 표시했다. LICENSE·upstream THIRD_PARTY_NOTICES·provenance가 SDK build에 포함된다. OpenAI 로고·폰트·React 구성요소는 포함하지 않는다.
+공식 `@siwc/local` 0.1.0은 private local workspace이므로 npm의 동명 패키지를 임의 설치하지 않았다. 공식 소스를 고정 버전으로 `vendor/siwc-local`에 보존하고 서버 workspace dependency로 사용한다. 최초 연결 구현에서는 소스·upstream 테스트를 수정하지 않고 build/test script 및 tsconfig 경로만 변경했다. 이후 GPT-6 Luna Extra High 적용을 위해 `src/types.ts`·`src/responses.ts`의 선택적 reasoning effort 전달을 추가하고 원래 Noncommercial License와 날짜별 변경 notice를 유지했다. LICENSE·upstream THIRD_PARTY_NOTICES·provenance가 SDK build에 포함된다. OpenAI 로고·폰트·React 구성요소는 포함하지 않는다.
 
 SDK는 OIDC discovery로 공식 인증 endpoint를 확인한다. 새 등록의 `dynamic_agent_client`와 callback의 issued client ID를 구분하고, state·nonce·PKCE·loopback Host/path·ID token 서명/issuer/audience/expiry/sub·반환 scope를 검증한다. `sendHostId:true`, `redirectPort:0`으로 IPv4 loopback listener를 먼저 열고 매번 fresh authorization을 시작한다. 기존 등록은 issued client ID를 재사용한다. scope는 공식 identity 및 `offline_access resource.invoke chatgpt.tokens.use.direct`이며 대화 내역 권한을 요청하지 않는다.
 
@@ -37,9 +37,9 @@ Windows DPAPI `CurrentUser` 공급자가 SDK의 `CredentialEncryption` contract�
 
 브라우저에는 토큰·인증 URL을 보내지 않는다. `/api/ai/*`는 기존 Host/Origin/확장 ID 검사와 no-store를 적용하며 고정된 UI 상태/계정 표시만 반환한다. 첫 연결 안내 boolean만 `chrome.storage.local`에 두며 뉴스·응답·읽기 이력은 저장하지 않는다. 공급자 오류 본문과 arbitrary 메시지도 패널에 전달하거나 로그로 남기지 않는다.
 
-계정별 모델은 `GET https://api.openai.com/v1/models`로 조회한다. 정책 함수는 카탈로그의 Luna → mini → Sol → 나머지 텍스트 후보 순서로 선택한다. 정확한 slug는 서버가 반환한 목록에서만 사용하며 연결 변경 때 메모리 캐시를 폐기한다. 모델이 없으면 명확한 오류를 반환한다.
+계정별 모델은 `GET https://api.openai.com/v1/models`로 조회한다. 최초 구현은 표시 카탈로그의 Luna → mini → Sol → 나머지 텍스트 후보 순서로 선택했다. GPT-6 Luna 변경 후에는 `gpt-6-luna`·`reasoning.effort=xhigh`로 명시하고 실제 Responses가 접근 권한을 검증한다. 표시 카탈로그 누락은 권한 거부로 취급하지 않는다. 연결 변경 때 discovery 메모리 캐시를 폐기하며 자동 모델·API Key fallback은 하지 않는다.
 
-plan inference는 SDK의 `POST https://api.openai.com/v1/responses`만 사용한다. HTTP body는 `{model,input:[{role:'user',content}],instructions,store:false,stream:true}`이며 unsupported fields와 system role, 이전 응답·conversation은 없다. SDK는 delta를 누적하고 `response.completed`까지 기다린다. failed/incomplete/transport interruption은 부분 성공으로 반환하지 않는다. Easynews는 응답 길이를 추가 제한하며 패널 계약은 기존 JSON이다.
+plan inference는 SDK의 `POST https://api.openai.com/v1/responses`만 사용한다. HTTP body는 `{model,reasoning:{effort:'xhigh'},input:[{role:'user',content}],instructions,store:false,stream:true}`이며 unsupported fields와 system role, 이전 응답·conversation은 없다. SDK는 delta를 누적하고 `response.completed`까지 기다린다. failed/incomplete/transport interruption은 부분 성공으로 반환하지 않는다. Easynews는 응답 길이를 추가 제한하며 패널 계약은 기존 JSON이다.
 
 Phase 2의 세 prompt와 최소 입력을 유지했다. Phase 4의 검색·dedup·rank·시간·출처 검증은 유지하고 fingerprint/classification만 Provider로 연결한다. DevKit이 strict JSON schema 옵션을 노출하지 않아 plan 경로는 schema 지시문과 기존 runtime validation으로 검증한다. malformed 판정과 일반 AI 연결 실패는 보수적 규칙 fallback을 사용하며 인증·권한·사용 한도·보호 저장소 오류는 직접 안내한다. 한도 오류 후 새 plan 요청을 차단하며 API Key로 자동 전환하지 않는다.
 
@@ -51,7 +51,7 @@ Disconnect는 진행 중 요청을 중단하고 SDK의 공식 revocation을 시�
 - `npm run build`: extension·SDK·server 통과, 배포물 license/notice 보존.
 - `npm test`: 2026-10-03 실제 QA 중 재실행한 runner 기준 전체 113개, 112개 통과, Unix 전용 SDK permission/symlink 테스트 1개 Windows에서 skip. extension 23/23, server 44/44, SDK 45/46 통과 + 1 skip. 이전 109개 표기는 반복문으로 생성되는 SDK 테스트 4개를 누락해 정정했다.
 - 최종 UI 연결 상태 처리 보완 후 extension/server typecheck·build, `node --test server/tests/chatgpt-plan.test.mjs` 9개 통과.
-- API Key migration default/명시 provider 선택/자동 billing fallback 금지.
+- 기본 ChatGPT plan/명시 API Key provider 선택/자동 billing fallback 금지.
 - mock OAuth: fresh state/nonce/PKCE, 잘못된 callback Host/path/state, issued client ID 교체 거부, nonce 불일치, scope 누락.
 - SDK upstream tests: signed identity mismatch, issuer/audience/expiry/signature, refresh rotation/checkpoint/JWKS 장애 복구, 암호화 공급자 실패, 파일 보존, disconnect 및 secret redaction.
 - 동시 refresh 직렬화, 실제 Windows DPAPI 합성 credential의 별도 프로세스 복호화와 ciphertext 훼손 거부.
@@ -109,4 +109,19 @@ Disconnect는 진행 중 요청을 중단하고 SDK의 공식 revocation을 시�
 15. 저장된 연결로 다시 로그인; 같은 host/client 등록 재사용 확인.
 16. 서버 재시작 후 같은 Windows 계정의 보호 저장소 재사용, 복호화 불가 시 차단 확인.
 
-기본값 전환은 이번 작업 범위가 아니다. 핵심 Plus E2E 성공에 따라 다음 변경에서 `chatgpt-plan`을 기본 Provider로 바꿀지 별도 제안만 한다. `.env.example`과 Provider 선택 기본값은 API Key로 유지하며 API Key Provider도 보존한다. API Key 실제 inference와 실제 NAVER 검색의 이전 미검증 상태도 별도로 유지한다.
+앞선 Plus E2E QA 작업에서는 기본값 전환이 범위 밖이어서 `.env.example`과 Provider 기본값을 API Key로 유지했다. 이후 사용자의 명시적 기본 모델 변경 요청에 따른 적용은 아래에 별도로 기록한다. API Key 실제 inference와 실제 NAVER 검색의 이전 미검증 상태는 유지한다.
+
+## GPT-6 Luna Extra High 적용 — 2026-10-03
+
+사용자가 기본값 확인 및 GPT-6 Luna Extra High 변경을 요청했다. 변경 전 코드 기본 Provider는 API Key, 실행 중인 로컬 Provider는 ChatGPT plan, 모델은 표시 카탈로그 정책으로 선택한 `gpt-5.6-luna`였고 reasoning effort는 명시하지 않았다.
+
+공식 모델 문서에서 `gpt-6-luna`와 `xhigh` 지원을 확인했다. 이 Plus 계정의 최신 표시 카탈로그에는 GPT-6 Astra 및 이전 모델들이 있고 GPT-6 Luna는 빠져 있었지만, 실제 Responses는 `gpt-6-luna`·`reasoning.effort=xhigh`를 HTTP 200으로 처리했다. 표시 목록에 없다는 이유만으로 모델을 사용할 수 없다고 한 초기 판단을 수정했다. 목록을 접근 권한 whitelist로 취급하지 않으며 실제 요청에서 권한을 검증한다.
+
+코드와 `.env.example` 기본 Provider를 `chatgpt-plan`으로 변경하고 plan의 모든 AI 요청에 모델과 effort를 명시했다. `AI_PROVIDER=api-key`는 계속 사용할 수 있고 자동 fallback은 없다. SDK 수정은 선택적 reasoning 타입·요청 전달 두 부분뿐이며 인증·DPAPI 보호·SSE 완료 검증은 유지했다. 변경 날짜와 기존 Noncommercial License를 source comment 및 provenance에 표시했다.
+
+- 새 Provider를 통한 실제 Plus 세 설명 모드: 모두 HTTP 200, `response.completed`, 완료 metadata의 `model=gpt-6-luna`·`reasoning.effort=xhigh` 확인. `store=false`, 빈 값이 아닌 제한 이내 한국어 응답 확인. 소요 시간은 쉽게 설명 7,244ms, 왜 그런가 7,538ms, 배경 설명 10,137ms.
+- 기존 서버를 새 빌드로 재시작: 연결·plan 승인 유지, `/api/ai/status` HTTP 200·`model=gpt-6-luna`, `/api/explain` HTTP 200 확인. 첫 수동 probe의 확장 식별 header 누락은 HTTP 403으로 차단됐고 올바른 header로 한 번 수정해 성공했다.
+- `npm run build`, `npm run typecheck`, `npm test` 성공. 총 113개 중 112개 통과·Unix 전용 SDK 테스트 1개 건너뜀. 최초 typecheck는 이전 SDK build의 타입 선언을 읽어 실패했으며 SDK를 먼저 빌드한 뒤 성공했다.
+- 실제 호출은 짧은 합성 입력으로 수행했다. credential·기사·선택 텍스트·AI 응답 내용을 로그나 문서에 출력하지 않았다. 새 모델의 Chrome 화면 재검증, Pro, 실제 NAVER 검색·Phase 4 관계 판정은 이번 변경에서 미검증이다.
+
+참고: [GPT-6 Luna 모델](https://developers.openai.com/api/docs/models/gpt-6-luna), [SIWC 모델과 inference](https://developers.openai.com/siwc/token-sharing-open-source/models-and-inference).

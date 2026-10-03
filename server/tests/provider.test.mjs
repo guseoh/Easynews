@@ -2,12 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { OpenAIApiKeyProvider, selectAiProvider } from '../dist/ai-provider.js';
 
-test('provider selection retains migration default and rejects implicit billing fallback', () => {
+test('provider selection defaults to ChatGPT plan and rejects implicit billing fallback', () => {
   const key = { id: 'api-key' }, plan = { id: 'chatgpt-plan' };
-  assert.equal(selectAiProvider(undefined, key, plan), key);
+  assert.equal(selectAiProvider(undefined, key, plan), plan);
+  assert.equal(selectAiProvider('  ', key, plan), plan);
+  assert.equal(selectAiProvider('api-key', key, plan), key);
   assert.equal(selectAiProvider('chatgpt-plan', key, plan), plan);
   assert.throws(() => selectAiProvider('other', key, plan));
   assert.throws(() => selectAiProvider('chatgpt-plan', key));
+  assert.throws(() => selectAiProvider(undefined, key));
 });
 
 test('API key provider preserves explanation and optional related adapters', async () => {
