@@ -110,10 +110,10 @@ Phase 3/4도 이해·탐색에 필요한 최소 문맥·메타데이터만 일�
 
 ## 검증 상태
 
-검증 결과는 [Phase 1 QA](docs/phase-1-qa.md), [Phase 2 QA](docs/phase-2-qa.md), [Phase 3 QA](docs/phase-3-qa.md), [Phase 4 QA](docs/phase-4-qa.md), [SIWC QA](docs/siwc-qa.md)를 참조하세요. 이번 전체 자동 테스트는 109개 중 108개 통과, Unix 전용 SDK 테스트 1개 건너뜀입니다. Windows DPAPI와 Chrome 합성 화면 검증도 수행했습니다. 실제 Plus/Pro OAuth·plan 사용·설치 확장 QA는 별도 미검증이며 빌드·mock 성공으로 완료 처리하지 않습니다.
+검증 결과는 [Phase 1 QA](docs/phase-1-qa.md), [Phase 2 QA](docs/phase-2-qa.md), [Phase 3 QA](docs/phase-3-qa.md), [Phase 4 QA](docs/phase-4-qa.md), [SIWC QA](docs/siwc-qa.md)를 참조하세요. 최신 전체 자동 테스트는 113개 중 112개 통과, Unix 전용 SDK 테스트 1개 건너뜀입니다. 실제 Plus의 핵심 E2E QA를 통과했습니다. 사용자가 설치 확장에서 OAuth·세 설명 모드·선택 변경·Manage usage를 수동 확인했고, 서버에서 plan 승인·모델 discovery·실제 Responses 완료·Disconnect 후 요청 차단·재로그인과 재시작 복구를 검증했습니다. 실제 NAVER 검색 및 Phase 4 관계 판정은 API 미설정으로 미검증입니다. 기본 Provider는 API Key로 유지합니다.
 
 ## 구조 및 다음 단계
 
 `extension/src`는 서비스 워커·문맥 추출·선택 감지·패널 코드를, `extension/public`은 패널 HTML·CSS를 포함합니다. `server/src`는 Node.js HTTP 서버, 두 AI Provider, Windows 보호 저장소 어댑터, NAVER 검색 파이프라인을 포함합니다. `vendor/siwc-local`은 버전을 고정한 공식 DevKit이며 로컬 workspace dependency로 연결합니다. 빌드 결과는 Git에서 제외합니다. 확장 런타임 의존성은 Mozilla Readability이며 서버의 DevKit은 jose·proper-lockfile을 사용합니다.
 
-Phase 1~4와 SIWC 구현·자동 검증·Chrome mock QA를 마쳤습니다. 실제 Plus/Pro plan 및 설치 확장의 네이버·한국경제·매일경제·연합뉴스 QA가 남아 있습니다. 개인용 로컬 범위를 유지하며 노트·자동 요약·클라우드 인프라는 추가하지 않습니다.
+Phase 1~4와 SIWC 구현·자동 검증·Chrome mock QA 및 실제 Plus 핵심 E2E를 마쳤습니다. 실제 NAVER 검색·Phase 4 관계 판정, Pro 계정과 실제 오류 조건의 QA가 남아 있습니다. 개인용 로컬 범위를 유지하며 노트·자동 요약·클라우드 인프라는 추가하지 않습니다.

@@ -1,6 +1,6 @@
 # Sign in with ChatGPT 전환 QA
 
-기준일: 2026-10-03. 실제 Plus/Pro OAuth·inference QA는 **미실행**이다. mock과 OS 보호 저장소 확인을 실제 plan 사용 성공으로 간주하지 않는다.
+기준일: 2026-10-03. 실제 Plus의 **핵심 E2E QA 성공**. 설치 확장의 화면·OAuth 승인은 사용자 수동 QA와 제공한 화면으로 확인했고, 에이전트는 서버 상태·실제 inference·Disconnect 후 요청 차단·재로그인·서버 재시작을 검증했다. Phase 4 실제 관계 판정은 NAVER API 미설정으로 미검증이다. mock 검증과 실제 plan 검증은 구분한다.
 
 ## 시작 상태와 호출 경계
 
@@ -49,7 +49,7 @@ Disconnect는 진행 중 요청을 중단하고 SDK의 공식 revocation을 시�
 
 - `npm run typecheck`: extension·SDK·server 통과.
 - `npm run build`: extension·SDK·server 통과, 배포물 license/notice 보존.
-- `npm test`: 전체 109개, 108개 통과, Unix 전용 SDK permission/symlink 테스트 1개 Windows에서 skip. extension 23/23, server 44/44, SDK 41/42 통과 + 1 skip.
+- `npm test`: 2026-10-03 실제 QA 중 재실행한 runner 기준 전체 113개, 112개 통과, Unix 전용 SDK permission/symlink 테스트 1개 Windows에서 skip. extension 23/23, server 44/44, SDK 45/46 통과 + 1 skip. 이전 109개 표기는 반복문으로 생성되는 SDK 테스트 4개를 누락해 정정했다.
 - 최종 UI 연결 상태 처리 보완 후 extension/server typecheck·build, `node --test server/tests/chatgpt-plan.test.mjs` 9개 통과.
 - API Key migration default/명시 provider 선택/자동 billing fallback 금지.
 - mock OAuth: fresh state/nonce/PKCE, 잘못된 callback Host/path/state, issued client ID 교체 거부, nonce 불일치, scope 누락.
@@ -66,7 +66,29 @@ Disconnect는 진행 중 요청을 중단하고 SDK의 공식 revocation을 시�
 
 연결 전 AI 버튼 비활성화, Continue with ChatGPT, 첫 연결 welcome, Using ChatGPT plan/합성 계정 표시, 설명 응답·최소 요청 필드, 한도 안내 및 버튼 중지, Disconnect 후 답변 정리를 확인했다. 실제 browser OAuth consent·설치 extension 연결은 아래 별도 QA로 남긴다.
 
-## 실제 Plus/Pro QA — 전 항목 미실행
+## 실제 Plus QA — 핵심 흐름 통과
+
+시작 상태: `main`, HEAD `4d0cda7`, clean, `origin/main`보다 5개 커밋 앞섬. Git에서 제외된 로컬 `server/.env`만 `AI_PROVIDER=chatgpt-plan`과 설치 확장 ID로 설정했다. 기본값과 API Key Provider는 변경하지 않았다.
+
+| 항목 | 실제 확인 결과 |
+| --- | --- |
+| 설치 확장 새로고침·기사 Side Panel·Plus OAuth 로그인 | 사용자가 완료 확인. Windows Computer Use가 Chrome URL 판별 실패로 중단되어 에이전트가 화면을 직접 조작하거나 로그인 승인을 수행하지 않았다. |
+| 서버 연결·plan 승인·모델 discovery | `/health` 정상, `/api/ai/status` HTTP 200, `chatgpt-plan`·`connected`·`sharing=true`·`gpt-5.6-luna` 확인. 계정 표시 정보는 기록하지 않았다. |
+| 쉽게 설명 / 왜 그런가 / 배경 설명 서버 inference | 최소 합성 예문으로 실제 plan 호출. 세 모드 모두 HTTP 200, 비어 있지 않은 한국어 응답, 8,000자 이내 확인. 기사 전문·사용자 선택·응답 내용은 기록하지 않았다. |
+| Responses 완료 | 서버가 사용하는 공식 SDK는 `response.completed`를 받아야 성공 반환한다. 위 세 HTTP 200은 이 경로를 통과한 결과이며 별도 SSE 내용 로그는 만들지 않았다. |
+| 보호 저장소 재사용 | 별도 Node 프로세스의 동일 SDK·Windows DPAPI 공급자로 실제 보호 저장소에서 `connected`·`sharing=true` 재확인. 서버 재시작 후에도 HTTP 200, `connected`·`sharing=true`·동일 모델 조회 성공을 7,924ms에 확인했다. |
+| 설치 확장의 세 응답·선택 변경·Manage usage | 사용자가 기능 정상 작동을 확인했고 실제 네이버 기사에서의 설명 응답·연결 상태 화면 5개를 제공했다. 화면에서 응답 내용이나 계정 정보를 추출해 문서·로그에 복사하지 않았다. 화면에 직접 나타나지 않는 선택 변경·Manage usage는 사용자 수동 확인을 근거로 기록한다. |
+| Disconnect·후속 요청 차단 | 사용자의 연결 해제 후 서버 상태 `disconnected`·`sharing=false`, 오류 없음 확인. 후속 AI 요청은 HTTP 401 / `CHATGPT_SIGN_IN_REQUIRED`, 답변 없음. 별도 프로세스의 SDK에서도 `disconnected`·`sharing=false` 확인. |
+| 재로그인 | 사용자가 OAuth 재로그인 완료 확인. 서버에서 HTTP 200, `connected`·`sharing=true`·동일 모델 조회 복구, 실제 설명 재호출 HTTP 200과 유효 응답 확인. |
+| Phase 4 실제 관계 판정 | NAVER 검색 API 미설정으로 미검증. |
+
+초기 서버 재시작 직후 15초 제한의 상태 probe가 한 번 시간 초과됐다. 원인은 특정하지 않았으며 제품 코드 수정 근거로 삼지 않았다. 재로그인 후 서버를 다시 시작해 40초 제한으로 동일 경로를 검증했고 7,924ms에 성공했다. 화면 기능 오류는 사용자가 보고하지 않았고, 재로그인과 재시작 재검증에서도 오류가 없었다.
+
+새 기능·인증 구조·credential storage 정책·API Key Provider를 변경하지 않았다. 문서의 QA 상태와 테스트 집계만 수정했다. 스크린샷은 사용자가 제공한 원본 위치에 두고 저장소에 복사하지 않았다. 서버는 로컬 opt-in plan 모드로 실행 중이며 구현 기본값은 API Key다.
+
+남은 미검증: 실제 NAVER 검색 및 Phase 4 관계 판정, Pro 계정, 실제 사용 한도 도달·계정 비적격·OS 보호 저장소 손상 같은 오류 경로. 이 경로들의 mock/합성 테스트 성공을 실제 검증으로 표시하지 않는다.
+
+### 실제 QA 체크리스트
 
 준비: Windows, build한 설치 extension, 로컬 서버 `.env`의 `AI_PROVIDER=chatgpt-plan` 및 확장 ID. 관련 뉴스에는 NAVER 검색 설정이 필요하다. API Key는 이 경로에서 필요하지 않다. 키·OAuth 코드·token·인증 URL을 QA 기록에 넣지 않는다.
 
@@ -87,4 +109,4 @@ Disconnect는 진행 중 요청을 중단하고 SDK의 공식 revocation을 시�
 15. 저장된 연결로 다시 로그인; 같은 host/client 등록 재사용 확인.
 16. 서버 재시작 후 같은 Windows 계정의 보호 저장소 재사용, 복호화 불가 시 차단 확인.
 
-승인 전환 조건: 위 실제 QA 성공 후 기본 Provider를 chatgpt-plan으로 바꾸고 문서·`.env.example`을 맞춘다. 이 작업에서는 API Key Provider를 삭제하지 않았다. API Key 실제 inference와 실제 NAVER 검색의 이전 미검증 상태도 별도로 유지한다.
+기본값 전환은 이번 작업 범위가 아니다. 핵심 Plus E2E 성공에 따라 다음 변경에서 `chatgpt-plan`을 기본 Provider로 바꿀지 별도 제안만 한다. `.env.example`과 Provider 선택 기본값은 API Key로 유지하며 API Key Provider도 보존한다. API Key 실제 inference와 실제 NAVER 검색의 이전 미검증 상태도 별도로 유지한다.
