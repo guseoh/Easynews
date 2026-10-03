@@ -44,13 +44,14 @@ export function validateAiStatus(data: unknown): AiStatus {
     ...(value.error && typeof value.error === 'object' && 'code' in value.error && typeof value.error.code === 'string' && Object.hasOwn(CHATGPT_MESSAGES, value.error.code) ? { error: { code: value.error.code } } : {}) };
 }
 
-export function mountChatGPTConnection(onChange: (enabled: boolean, invalidate: boolean) => void) {
+export function mountChatGPTConnection(onChange: (enabled: boolean, invalidate: boolean, status?: AiStatus) => void) {
   const message = document.querySelector<HTMLParagraphElement>('#ai-connection-status')!;
   const connect = document.querySelector<HTMLButtonElement>('#connect-chatgpt')!;
   const disconnect = document.querySelector<HTMLButtonElement>('#disconnect-chatgpt')!;
   const recheck = document.querySelector<HTMLButtonElement>('#recheck-chatgpt')!;
   const cancel = document.querySelector<HTMLButtonElement>('#cancel-chatgpt')!;
   const accounts = document.querySelector<HTMLSelectElement>('#chatgpt-accounts')!;
+  const accountLabel = document.querySelector<HTMLLabelElement>('#chatgpt-account-label')!;
   const usage = document.querySelector<HTMLAnchorElement>('#manage-usage')!;
   const welcome = document.querySelector<HTMLDialogElement>('#chatgpt-welcome')!;
   let closed = false, acting = false, lastIdentity = '', lastStatus = '', current: AiStatus | undefined;
@@ -76,7 +77,7 @@ export function mountChatGPTConnection(onChange: (enabled: boolean, invalidate: 
       const enabled = !plan || (next.sharing && next.status === 'connected' && !!next.model && !next.usageLimited);
       const identity = `${next.account || ''}:${next.profileLabel || ''}`;
       const completedConnectionChange = lastStatus === 'connecting' && next.status !== 'connecting';
-      onChange(enabled, !!lastStatus && (identity !== lastIdentity || next.status !== lastStatus));
+      onChange(enabled, !!lastStatus && (identity !== lastIdentity || next.status !== lastStatus), next);
       lastIdentity = identity; lastStatus = next.status;
       message.textContent = !plan ? 'API Key 방식으로 실행 중입니다.'
         : next.usageLimited ? CHATGPT_MESSAGES.CHATGPT_USAGE_LIMIT!
@@ -84,17 +85,24 @@ export function mountChatGPTConnection(onChange: (enabled: boolean, invalidate: 
         : next.status === 'connecting' ? '브라우저에서 ChatGPT 연결을 승인해 주세요…'
         : enabled ? `ChatGPT 연결됨 · Using ChatGPT plan${next.account ? ` · ${next.account}` : ''}`
         : next.sharing ? '사용할 수 있는 모델을 확인해 주세요.' : 'AI 설명을 사용하려면 ChatGPT를 연결하세요. ChatGPT 대화 내역에는 접근하지 않습니다.';
+      message.dataset.state = enabled ? 'success' : next.status === 'connecting' ? 'loading' : 'warning';
+      message.dataset.loading = String(next.status === 'connecting');
       connect.hidden = !plan || next.status === 'connecting'; connect.disabled = acting;
       connect.textContent = next.status === 'connected' && !next.sharing ? 'ChatGPT plan 사용 승인' : 'Continue with ChatGPT';
       disconnect.hidden = !plan || next.status === 'disconnected'; disconnect.disabled = acting;
       cancel.hidden = next.status !== 'connecting';
       recheck.hidden = !plan || next.status === 'connecting'; recheck.disabled = acting;
       accounts.hidden = !plan || next.status === 'connecting'; accounts.disabled = acting;
+      accountLabel.hidden = accounts.hidden;
       usage.hidden = !plan;
       if (enabled && plan) void showWelcome();
       if (completedConnectionChange) void profiles();
     } catch {
-      if (!closed) message.textContent = '로컬 서버의 AI 연결 상태를 확인하지 못했습니다. 서버 실행 후 다시 확인해 주세요.';
+      if (!closed) {
+        message.textContent = '로컬 서버의 AI 연결 상태를 확인하지 못했습니다. 서버 실행 후 다시 확인해 주세요.';
+        message.dataset.state = 'error';
+        onChange(false, false);
+      }
     } finally {
       clearTimeout(timer);
       if (!closed && current?.status === 'connecting') timer = setTimeout(() => void sync(), 2_000);

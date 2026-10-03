@@ -1,62 +1,137 @@
 <!doctype html>
-<html lang="ko">
+<html lang="ko" data-theme="light" data-theme-preference="system">
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
     <title>Easynews</title>
     <link rel="stylesheet" href="sidepanel.css">
     <script src="sidepanel.js" defer></script>
   </head>
   <body>
-    <header><span class="eyebrow">뉴스 리딩 어시스턴트</span><h1>Easynews<span class="brand-dot">.</span></h1><p>직접 읽고, 궁금한 문장을 골라 보세요.</p></header>
-    <main>
-      <section class="page-card" aria-labelledby="ai-connection-title">
-        <h2 id="ai-connection-title">AI 연결</h2>
-        <p id="ai-connection-status" class="caption" role="status" aria-live="polite">연결 상태를 확인합니다…</p>
-        <label for="chatgpt-accounts" class="caption">ChatGPT 연결</label>
-        <select id="chatgpt-accounts" hidden><option value="">현재 연결</option><option value="__new__">다른 계정 추가</option></select>
-        <button id="connect-chatgpt" type="button" hidden>Continue with ChatGPT</button>
-        <button id="cancel-chatgpt" type="button" hidden>연결 취소</button>
-        <button id="recheck-chatgpt" type="button" hidden>연결 다시 확인</button>
-        <button id="disconnect-chatgpt" type="button" hidden>Disconnect</button>
-        <a id="manage-usage" href="https://chatgpt.com/settings/usage" target="_blank" rel="noopener noreferrer" hidden>Manage usage</a>
+    <header class="app-header">
+      <div class="brand-row">
+        <a class="brand" href="#main-content" aria-label="Easynews 홈">Easynews<span class="brand-dot">.</span></a>
+        <div class="header-actions">
+          <details id="connection-menu" class="connection-menu">
+            <summary id="connection-trigger" aria-label="AI 연결 메뉴" aria-controls="connection-popover" title="AI 연결 설정">
+              <span id="connection-dot" class="connection-dot" aria-hidden="true"></span>
+              <span id="connection-label">연결 확인 중</span>
+            </summary>
+            <section id="connection-popover" class="connection-popover" aria-label="AI 연결 설정">
+              <p class="popover-title">AI 연결</p>
+              <p id="ai-connection-status" class="status-message" role="status" aria-live="polite">연결 상태를 확인합니다…</p>
+              <label id="chatgpt-account-label" for="chatgpt-accounts" class="caption">계정 선택 또는 추가</label>
+              <select id="chatgpt-accounts" hidden><option value="">현재 연결</option><option value="__new__">다른 계정 추가</option></select>
+              <button id="connect-chatgpt" class="button button-primary" type="button" hidden>Continue with ChatGPT</button>
+              <button id="cancel-chatgpt" class="button button-secondary" type="button" hidden>연결 취소</button>
+              <button id="recheck-chatgpt" class="button button-ghost" type="button" hidden>연결 다시 확인</button>
+              <button id="disconnect-chatgpt" class="button button-danger" type="button" hidden>Disconnect</button>
+              <a id="manage-usage" class="manage-usage" href="https://chatgpt.com/settings/usage" target="_blank" rel="noopener noreferrer" hidden>Manage usage</a>
+            </section>
+          </details>
+          <div class="theme-control">
+            <button id="theme-toggle" class="icon-button" type="button" aria-label="테마 선택" aria-haspopup="menu" aria-expanded="false" title="테마 선택"><span aria-hidden="true">◐</span></button>
+            <div id="theme-menu" class="theme-menu" role="menu" aria-label="색상 테마" hidden>
+              <button type="button" role="menuitemradio" data-theme-choice="system" aria-checked="true">시스템 설정</button>
+              <button type="button" role="menuitemradio" data-theme-choice="light" aria-checked="false">라이트</button>
+              <button type="button" role="menuitemradio" data-theme-choice="dark" aria-checked="false">다크</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <section class="current-article" aria-labelledby="page-title">
+        <span class="eyebrow">현재 기사</span>
+        <div class="article-title-row">
+          <h1 id="page-title">현재 페이지</h1>
+          <a id="page-url" class="original-link" target="_blank" rel="noopener noreferrer" hidden>원문 <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="article-meta">
+          <span id="article-source"></span>
+          <span id="context-status" class="context-badge" role="status"></span>
+        </div>
+        <div class="page-status-row">
+          <p id="status" class="status-message" role="status" aria-live="polite"></p>
+          <button id="refresh" class="button button-ghost button-small" type="button">다시 확인</button>
+        </div>
       </section>
-      <dialog id="chatgpt-welcome">
-        <h2>You're using your ChatGPT plan</h2>
-        <p>Easynews의 AI 요청에 ChatGPT plan을 사용합니다. 사용량과 앱 한도는 ChatGPT 설정에서 관리할 수 있습니다.</p>
-        <a href="https://chatgpt.com/settings/usage" target="_blank" rel="noopener noreferrer">Manage usage</a>
-        <button id="dismiss-chatgpt-welcome" type="button">Got it</button>
-      </dialog>
-      <section class="page-card" aria-labelledby="page-title">
-        <span class="eyebrow">읽고 있는 페이지</span>
-        <h2 id="page-title">현재 페이지</h2>
-        <a id="page-url" target="_blank" rel="noopener noreferrer" hidden></a>
+    </header>
+
+    <main id="main-content">
+      <div class="tabs-shell">
+        <div class="tabs" role="tablist" aria-label="Easynews 기능">
+          <button id="tab-explain" class="tab" type="button" role="tab" aria-selected="true" aria-controls="panel-explain" tabindex="0">문장 이해</button>
+          <button id="tab-related" class="tab" type="button" role="tab" aria-selected="false" aria-controls="panel-related" tabindex="-1">관련 뉴스</button>
+        </div>
+      </div>
+
+      <section id="panel-explain" class="tab-panel" role="tabpanel" aria-labelledby="tab-explain" tabindex="0">
+        <div class="selection-heading">
+          <h2 id="selection-title">선택한 문장</h2>
+          <span id="selection-count" class="caption"></span>
+        </div>
+        <blockquote id="selected-text" class="selection-card is-collapsed">기사에서 이해하기 어려운 문장을 선택해 주세요.</blockquote>
+        <button id="expand-selection" class="button button-ghost button-small expand-selection" type="button" aria-expanded="false" hidden>더 보기</button>
+        <div class="explanation-section">
+          <div class="section-heading-row">
+            <h2>설명 모드</h2>
+            <span id="selection-context" class="caption"></span>
+          </div>
+          <div class="explain-actions" role="group" aria-label="설명 모드 선택">
+            <button class="button button-secondary" data-mode="simple" aria-pressed="false" disabled>쉽게 설명</button>
+            <button class="button button-secondary" data-mode="why" aria-pressed="false" disabled>왜 그런가</button>
+            <button class="button button-secondary" data-mode="background" aria-pressed="false" disabled>배경 설명</button>
+          </div>
+          <p id="explain-status" class="status-message" role="status" aria-live="polite"></p>
+          <button id="retry-explain" class="button button-ghost button-small" type="button" hidden>설명 다시 시도</button>
+          <article id="answer-card" class="answer-card" aria-labelledby="answer-title" hidden>
+            <h3 id="answer-title">설명</h3>
+            <p id="answer" aria-live="polite"></p>
+          </article>
+        </div>
       </section>
-      <div class="status-row"><p id="status" role="status" aria-live="polite"></p><button id="refresh" type="button">다시 확인</button></div>
-      <p id="context-status" class="caption" role="status"></p>
-      <section aria-labelledby="selection-title">
-        <h2 id="selection-title">선택한 내용</h2>
-        <blockquote id="selected-text">기사에서 이해하기 어려운 문장을 선택해 주세요.</blockquote>
-        <p id="selection-count" class="caption"></p>
-      </section>
-      <section class="next-step" aria-labelledby="explain-title">
-        <h2 id="explain-title">문장 이해하기</h2>
-        <div class="explain-actions"><button data-mode="simple" disabled>쉽게 설명</button><button data-mode="why" disabled>왜 그런가</button><button data-mode="background" disabled>배경 설명</button></div>
-        <p class="caption">버튼을 누르면 선택 문장·기사 제목·필요한 짧은 주변 문맥만 AI에 전달합니다.</p>
-        <p id="explain-status" class="caption" role="status" aria-live="polite"></p>
-        <button id="retry-explain" type="button" hidden>설명 다시 시도</button>
-        <p id="answer" aria-live="polite"></p>
-      </section>
-      <section class="next-step related-news" aria-labelledby="related-title">
-        <h2 id="related-title">관련 뉴스</h2>
-        <button id="find-related" type="button" disabled>관련 뉴스 찾기</button>
-        <p class="caption">요청할 때 기사 제목·출처·발행 시각·짧은 도입부로 검색합니다. 원문은 언론사 페이지에서 읽습니다.</p>
-        <p id="related-status" role="status" aria-live="polite"></p>
-        <button id="retry-related" type="button" hidden>관련 뉴스 다시 시도</button>
-        <h3>이어지는 기사</h3><ol id="follow-ups"></ol>
-        <h3>배경 기사</h3><ol id="background-news"></ol>
+
+      <section id="panel-related" class="tab-panel" role="tabpanel" aria-labelledby="tab-related" tabindex="0" hidden>
+        <div class="related-intro">
+          <div>
+            <h2>관련 뉴스</h2>
+            <p class="caption">현재 사건의 후속 기사와 배경 기사를 찾아봅니다.</p>
+          </div>
+          <button id="find-related" class="button button-primary" type="button" disabled>관련 뉴스 찾기</button>
+        </div>
+        <p id="related-status" class="status-message related-status" role="status" aria-live="polite"></p>
+        <p id="related-wait-note" class="caption" hidden>검색과 기사 관계 확인에 시간이 조금 걸릴 수 있어요.</p>
+        <ol id="related-progress" class="progress-steps" aria-label="관련 뉴스 검색 진행 상황" hidden>
+          <li data-stage="searching">뉴스 후보 검색</li>
+          <li data-stage="checking">기사 정보 확인</li>
+          <li data-stage="classifying">후속·배경 기사 구분</li>
+        </ol>
+        <button id="retry-related" class="button button-ghost button-small" type="button" hidden>관련 뉴스 다시 시도</button>
+        <div id="related-empty" class="empty-state" role="status" hidden>
+          <h3>직접 이어지는 후속·배경 기사를 찾지 못했어요.</h3>
+          <p>관련성이 낮은 기사를 억지로 추천하지 않습니다.</p>
+        </div>
+        <div id="related-results" class="related-results" hidden>
+          <section class="result-group" aria-labelledby="follow-ups-title">
+            <div class="result-heading"><h3 id="follow-ups-title">이어지는 기사</h3><span id="follow-ups-count" class="count-badge"></span></div>
+            <ol id="follow-ups" class="news-list"></ol>
+            <p id="follow-ups-empty" class="empty-group" hidden>현재 기사와 직접 이어진다고 판단할 만한 뉴스가 아직 검색되지 않았습니다.</p>
+          </section>
+          <section class="result-group" aria-labelledby="background-title">
+            <div class="result-heading"><h3 id="background-title">배경 기사</h3><span id="background-count" class="count-badge"></span></div>
+            <ol id="background-news" class="news-list"></ol>
+            <p id="background-empty" class="empty-group" hidden>현재 사건의 직접 배경으로 분류할 만한 기사가 검색되지 않았습니다.</p>
+          </section>
+        </div>
       </section>
     </main>
-    <footer>Easynews는 뉴스 원문을 직접 읽는 일을 돕습니다.</footer>
+    <footer>Easynews는 뉴스 원문을 읽는 일을 돕습니다.</footer>
+
+    <dialog id="chatgpt-welcome">
+      <h2>You're using your ChatGPT plan</h2>
+      <p>Easynews의 AI 요청에 ChatGPT plan을 사용합니다. 사용량과 앱 한도는 ChatGPT 설정에서 관리할 수 있습니다.</p>
+      <a href="https://chatgpt.com/settings/usage" target="_blank" rel="noopener noreferrer">Manage usage</a>
+      <button id="dismiss-chatgpt-welcome" class="button button-secondary" type="button">Got it</button>
+    </dialog>
   </body>
 </html>
