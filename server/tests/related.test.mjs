@@ -137,7 +137,7 @@ test('LLM failure falls back queries and relations; no key uses conservative rul
 
 test('zero search results return empty groups and do not call relation LLM', async () => {
   const result = await createRelatedService(async () => [], { fingerprint: async () => fingerprint, classify: async () => { assert.fail('should not classify empty shortlist'); } })(input, signal());
-  assert.deepEqual(result, { followUps: [], background: [], warnings: [] });
+  assert.deepEqual(result, { followUps: [], background: [], warnings: [], emptyReason: 'NO_SEARCH_RESULTS' });
 });
 
 test('Naver adapter keeps credentials server-side, limits results and propagates safe errors', async () => {

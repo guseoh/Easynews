@@ -47,6 +47,34 @@ test('all three modes travel through the HTTP API and use stateless minimal prov
   }
 });
 
+test('streaming transport exposes drafts then a verified completion and safe errors', async (t) => {
+  const { post } = await start(t, async (_input, _signal, onDelta) => { onDelta?.('첫 문단'); return '첫 문단\n\n두 번째 문단'; });
+  const response = await post(input, { headers: { ...headers, Accept: 'application/x-ndjson' } });
+  assert.match(response.headers.get('content-type'), /ndjson/);
+  assert.deepEqual((await response.text()).trim().split('\n').map(JSON.parse), [{ delta: '첫 문단' }, { answer: '첫 문단\n\n두 번째 문단' }]);
+  const failing = await start(t, async (_input, _signal, onDelta) => { onDelta?.('임시'); throw new Error('private upstream'); });
+  const failed = await failing.post(input, { headers: { ...headers, Accept: 'application/x-ndjson' } });
+  const events = (await failed.text()).trim().split('\n').map(JSON.parse);
+  assert.equal(events[1].error.code, 'SERVER_ERROR');
+  assert.ok(!JSON.stringify(events).includes('private upstream'));
+  assert.ok(!events.some((event) => 'answer' in event));
+});
+
+test('API Key streaming requires response.completed, preserves UTF-8 and remains stateless', async () => {
+  const event = (value) => `data: ${JSON.stringify(value)}\r\n\r\n`;
+  const text = event({ type: 'response.output_text.delta', delta: '한국어' }) + event({ type: 'response.completed', response: output('한국어') });
+  const bytes = new TextEncoder().encode(text);
+  const drafts = [];
+  const explain = createExplainer({ apiKey: 'test', model: 'test' }, async (_url, options) => {
+    const body = JSON.parse(options.body); assert.equal(body.stream, true); assert.equal(body.store, false);
+    return new Response(new ReadableStream({ start(controller) { for (const byte of bytes) controller.enqueue(Uint8Array.of(byte)); controller.close(); } }));
+  });
+  assert.equal(await explain(input, new AbortController().signal, (delta) => drafts.push(delta)), '한국어');
+  assert.deepEqual(drafts, ['한국어']);
+  const incomplete = createExplainer({ apiKey: 'test', model: 'test' }, async () => new Response(event({ type: 'response.output_text.delta', delta: '미완료' })));
+  await assert.rejects(incomplete(input, new AbortController().signal, () => {}), (error) => error.code === 'INVALID_LLM_RESPONSE');
+});
+
 test('schema rejects article bodies, unknown fields and invalid or oversized selections before LLM', async (t) => {
   let calls = 0;
   const { post } = await start(t, async () => { calls++; return '응답'; });
@@ -58,6 +86,17 @@ test('schema rejects article bodies, unknown fields and invalid or oversized sel
   }
   assert.equal(calls, 0);
   assert.equal(validateInput({ mode: 'simple', selectedText: ' 문장 ' }).selectedText, '문장');
+});
+
+test('focused explanation and questions are bounded to current selection without response history', () => {
+  const value = validateInput({ ...input, selectedText: '공실률 4.0%로 상승', focusText: '4.0%', question: '이 수치가 의미하는 것은?', depth: 'detailed' });
+  const prompt = createPrompt(value);
+  assert.equal(JSON.parse(prompt.input).focusText, '4.0%');
+  assert.equal(JSON.parse(prompt.input).question, '이 수치가 의미하는 것은?');
+  assert.match(prompt.instructions, /최대 10문장/);
+  for (const extra of [{ focusText: '발췌에 없는 용어' }, { question: '가'.repeat(301) }, { depth: 'unbounded' }, { history: ['old answer'] }, { previousAnswer: 'old answer' }]) {
+    assert.throws(() => validateInput({ ...input, ...extra }), (error) => error.code === 'INVALID_INPUT');
+  }
 });
 
 test('only configured extension can call explain; preflight is narrow', async (t) => {

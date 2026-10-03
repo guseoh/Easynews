@@ -37,6 +37,7 @@ export function createApp(config: { extensionId: string; providerId?: string; re
   return createServer(async (request, response) => {
     const controller = new AbortController();
     let relatedStream = false;
+    let explanationStream = false;
     const streamLine = (value: unknown) => { if (!response.destroyed && !response.writableEnded) response.write(JSON.stringify(value) + '\n'); };
     response.on('close', () => { if (!response.writableEnded) controller.abort(); });
     try {
@@ -123,18 +124,26 @@ export function createApp(config: { extensionId: string; providerId?: string; re
           } finally { clearTimeout(timer); }
           return;
         }
-        const answer = await explain(input as ReturnType<typeof validateInput>, controller.signal);
+        explanationStream = request.headers.accept === 'application/x-ndjson';
+        if (explanationStream) response.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store' });
+        let received = 0;
+        const answer = await explain(input as ReturnType<typeof validateInput>, controller.signal, explanationStream ? (delta) => {
+          received += delta.length;
+          if (received > MAX_ANSWER_LENGTH) throw new ApiError(502, 'INVALID_LLM_RESPONSE', 'AI 응답이 너무 깁니다.');
+          if (!controller.signal.aborted) streamLine({ delta });
+        } : undefined);
         if (controller.signal.aborted) return;
         if (typeof answer !== 'string' || !answer.trim() || answer.length > MAX_ANSWER_LENGTH) {
           throw new ApiError(502, 'INVALID_LLM_RESPONSE', 'AI 응답을 읽지 못했습니다. 다시 시도해 주세요.');
         }
-        send(response, 200, { answer });
+        if (explanationStream) { streamLine({ answer }); response.end(); }
+        else send(response, 200, { answer });
       } finally { active--; }
     } catch (error) {
       // Never log request bodies, provider error bodies, selected text, or answers.
       const failure = error instanceof ApiError ? error : new ApiError(500, 'SERVER_ERROR', '요청을 처리하지 못했습니다. 다시 시도해 주세요.');
       const body = { error: { code: failure.code, message: failure.message } };
-      if (relatedStream) { streamLine(body); response.end(); }
+      if (relatedStream || explanationStream) { streamLine(body); response.end(); }
       else send(response, failure.status, body);
     }
   });

@@ -1,8 +1,16 @@
 import type { ArticleContext } from './article-context';
 import { CHATGPT_MESSAGES } from './chatgpt-connection';
 
-export interface RelatedArticle { title: string; url: string; source: string; publishedAt?: string; relationReason: string }
-export interface RelatedResult { followUps: RelatedArticle[]; background: RelatedArticle[]; warnings: string[] }
+export interface NewsLink { title: string; url: string; source: string; publishedAt?: string }
+export interface RelatedArticle extends NewsLink { relationReason: string; alternatives?: NewsLink[] }
+export interface RelatedResult { followUps: RelatedArticle[]; background: RelatedArticle[]; warnings: string[]; emptyReason?: keyof typeof EMPTY_REASONS }
+export const EMPTY_REASONS = {
+  NO_SEARCH_RESULTS: '뉴스 검색에서 후보를 찾지 못했습니다. 시간이 지난 뒤 다시 검색해 주세요.',
+  NO_RELEVANT_MATCH: '검색 후보가 현재 사건과 충분히 맞지 않아 추천에서 제외했습니다.',
+  NO_DIRECT_RELATION: '후보는 있었지만 직접적인 후속 변화나 배경으로 확인되지 않았습니다.',
+  DATE_UNVERIFIED: '후속 후보의 발행 시각을 확인할 수 없어 시간 순서를 보장하지 못했습니다.',
+  CLASSIFICATION_UNAVAILABLE: '기사 관계 확인에 실패했고 제목·시간 규칙만으로는 추천을 확정하지 못했습니다. 다시 시도해 주세요.',
+};
 export type RelatedStage = 'searching' | 'checking' | 'classifying';
 export const RELATED_PROGRESS: Record<RelatedStage, string> = {
   searching: '관련 기사 검색 중…', checking: '후보 기사를 확인하는 중…', classifying: '이어지는 기사와 배경 기사를 구분하는 중…',
@@ -31,20 +39,29 @@ export const WARNING_MESSAGES: Record<string, string> = {
 function validArticle(value: unknown): value is RelatedArticle {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const row = value as Record<string, unknown>;
-  if (Object.keys(row).some((key) => !['title', 'url', 'source', 'publishedAt', 'relationReason'].includes(key))
+  if (Object.keys(row).some((key) => !['title', 'url', 'source', 'publishedAt', 'relationReason', 'alternatives'].includes(key))
     || typeof row.title !== 'string' || !row.title.trim() || row.title.length > 300
     || typeof row.source !== 'string' || !row.source.trim() || row.source.length > 253
     || typeof row.url !== 'string' || row.url.length > 2048
     || typeof row.relationReason !== 'string' || !row.relationReason.trim() || row.relationReason.length > 180
-    || (row.publishedAt !== undefined && (typeof row.publishedAt !== 'string' || row.publishedAt.length > 80))) return false;
+    || (row.publishedAt !== undefined && (typeof row.publishedAt !== 'string' || row.publishedAt.length > 80))
+    || (row.alternatives !== undefined && (!Array.isArray(row.alternatives) || row.alternatives.length > 3 || !row.alternatives.every(validAlternative)))) return false;
   try { const url = new URL(row.url); return /^https?:$/.test(url.protocol) && !url.username && !url.password; }
   catch { return false; }
+}
+function validAlternative(value: unknown): value is NewsLink {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const row = value as Record<string, unknown>;
+  return !Object.keys(row).some((key) => !['title', 'url', 'source', 'publishedAt'].includes(key))
+    && validArticle({ ...row, relationReason: '같은 진행의 다른 보도' });
 }
 export function validateRelatedResult(value: unknown): RelatedResult {
   const invalid = () => new Error('관련 뉴스 응답을 읽지 못했습니다. 다시 시도해 주세요.');
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw invalid();
   const data = value as Record<string, unknown>;
-  if (Object.keys(data).length !== 3 || !Array.isArray(data.followUps) || data.followUps.length > 4 || !data.followUps.every(validArticle)
+  if (Object.keys(data).some((key) => !['followUps', 'background', 'warnings', 'emptyReason'].includes(key))
+    || (data.emptyReason !== undefined && (typeof data.emptyReason !== 'string' || !Object.hasOwn(EMPTY_REASONS, data.emptyReason)))
+    || !Array.isArray(data.followUps) || data.followUps.length > 4 || !data.followUps.every(validArticle)
     || !Array.isArray(data.background) || data.background.length > 4 || !data.background.every(validArticle)
     || !Array.isArray(data.warnings) || data.warnings.length > 4 || data.warnings.some((warning) => typeof warning !== 'string' || !Object.hasOwn(WARNING_MESSAGES, warning))) throw invalid();
   return data as unknown as RelatedResult;

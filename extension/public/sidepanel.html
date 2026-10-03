@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko" data-theme="light" data-theme-preference="system">
+<html lang="ko" data-theme="light" data-theme-preference="system" data-density="compact" data-text-size="small">
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -31,11 +31,18 @@
             </section>
           </details>
           <div class="theme-control">
-            <button id="theme-toggle" class="icon-button" type="button" aria-label="테마 선택" aria-haspopup="menu" aria-expanded="false" title="테마 선택"><span aria-hidden="true">◐</span></button>
-            <div id="theme-menu" class="theme-menu" role="menu" aria-label="색상 테마" hidden>
+            <button id="theme-toggle" class="icon-button" type="button" aria-label="화면 설정" aria-haspopup="menu" aria-expanded="false" title="화면 설정"><span aria-hidden="true">◐</span></button>
+            <div id="theme-menu" class="theme-menu" role="menu" aria-label="화면 설정" hidden>
+              <span class="settings-label" role="separator">테마</span>
               <button type="button" role="menuitemradio" data-theme-choice="system" aria-checked="true">시스템 설정</button>
               <button type="button" role="menuitemradio" data-theme-choice="light" aria-checked="false">라이트</button>
               <button type="button" role="menuitemradio" data-theme-choice="dark" aria-checked="false">다크</button>
+              <span class="settings-label" role="separator">카드·섹션 밀도</span>
+              <button type="button" role="menuitemradio" data-density-choice="compact" aria-checked="true">작게</button>
+              <button type="button" role="menuitemradio" data-density-choice="comfortable" aria-checked="false">보통</button>
+              <span class="settings-label" role="separator">본문 글자</span>
+              <button type="button" role="menuitemradio" data-text-size-choice="small" aria-checked="true">작게</button>
+              <button type="button" role="menuitemradio" data-text-size-choice="normal" aria-checked="false">보통</button>
             </div>
           </div>
         </div>
@@ -72,6 +79,17 @@
         </div>
         <blockquote id="selected-text" class="selection-card is-collapsed">기사에서 이해하기 어려운 문장을 선택해 주세요.</blockquote>
         <button id="expand-selection" class="button button-ghost button-small expand-selection" type="button" aria-expanded="false" hidden>더 보기</button>
+        <div class="reading-options">
+          <label for="explanation-depth">설명 깊이 <select id="explanation-depth"><option value="short">짧게</option><option value="detailed">자세히</option></select></label>
+          <button id="reveal-selection" class="button button-ghost button-small" type="button" disabled>원문 위치로 이동 ↗</button>
+        </div>
+        <details class="reading-tools">
+          <summary>용어·수치만 설명</summary>
+          <form id="focus-form" class="reading-form">
+            <label for="focus-text">선택 문장 안의 용어·수치</label>
+            <div class="input-action"><input id="focus-text" type="text" maxlength="120" required autocomplete="off" placeholder="예: 공실률, 25.7%"><button id="focus-explain" class="button button-secondary" type="submit" disabled>설명</button></div>
+          </form>
+        </details>
         <div class="explanation-section">
           <div class="section-heading-row">
             <h2>설명 모드</h2>
@@ -83,11 +101,17 @@
             <button class="button button-secondary" data-mode="background" aria-pressed="false" disabled>배경 설명</button>
           </div>
           <p id="explain-status" class="status-message" role="status" aria-live="polite"></p>
+          <button id="stop-explain" class="button button-ghost button-small" type="button" hidden>설명 중지</button>
           <button id="retry-explain" class="button button-ghost button-small" type="button" hidden>설명 다시 시도</button>
           <article id="answer-card" class="answer-card" aria-labelledby="answer-title" hidden>
             <h3 id="answer-title">설명</h3>
-            <p id="answer" aria-live="polite"></p>
+            <div id="answer" aria-live="polite"></div>
           </article>
+          <form id="question-form" class="reading-form" hidden>
+            <label for="question-text">현재 문장에 추가 질문</label>
+            <div class="input-action"><input id="question-text" type="text" maxlength="300" required autocomplete="off" placeholder="예: 이 두 용어는 어떻게 다른가요?"><button id="ask-question" class="button button-secondary" type="submit">질문</button></div>
+            <span class="caption">현재 선택 문맥만 사용합니다. 이전 답변·질문 이력은 저장하지 않습니다.</span>
+          </form>
         </div>
       </section>
 
@@ -109,7 +133,7 @@
         <button id="retry-related" class="button button-ghost button-small" type="button" hidden>관련 뉴스 다시 시도</button>
         <div id="related-empty" class="empty-state" role="status" hidden>
           <h3>직접 이어지는 후속·배경 기사를 찾지 못했어요.</h3>
-          <p>관련성이 낮은 기사를 억지로 추천하지 않습니다.</p>
+          <p id="related-empty-reason">관련성이 낮은 기사를 억지로 추천하지 않습니다.</p>
         </div>
         <div id="related-results" class="related-results" hidden>
           <section class="result-group" aria-labelledby="follow-ups-title">
@@ -125,6 +149,11 @@
         </div>
       </section>
     </main>
+    <details class="shortcut-help">
+      <summary>기본 단축키</summary>
+      <dl><dt>Alt + Shift + E</dt><dd>현재 기사에서 패널 열기</dd><dt>Alt + Shift + 1 / 2 / 3</dt><dd>쉽게 설명 / 왜 그런가 / 배경 설명</dd><dt>Alt + Shift + 0</dt><dd>패널에서 원문으로 이동</dd></dl>
+      <p>Chrome 확장 프로그램 단축키 설정에서 패널 열기·설명 실행 키를 변경할 수 있습니다.</p>
+    </details>
     <footer>Easynews는 뉴스 원문을 읽는 일을 돕습니다.</footer>
 
     <dialog id="chatgpt-welcome">

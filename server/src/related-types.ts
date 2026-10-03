@@ -5,10 +5,12 @@ export interface RelatedInput { title: string; url: string; canonicalUrl?: strin
 export interface EventFingerprint { event: string; entities: string[]; organizations: string[]; people: string[]; locations: string[]; keywords: string[]; searchQueries: string[] }
 export interface NewsCandidate { title: string; url: string; originalUrl?: string; description?: string; publishedAt?: string; source: string }
 export type Relation = 'follow_up' | 'background' | 'related' | 'irrelevant';
-export interface RelationDecision { index: number; relation: Relation; relationReason: string }
-export interface RelatedArticle { title: string; url: string; source: string; publishedAt?: string; relationReason: string }
+export interface RelationDecision { index: number; relation: Relation; relationReason: string; duplicateOf?: number }
+export interface NewsLink { title: string; url: string; source: string; publishedAt?: string }
+export interface RelatedArticle extends NewsLink { relationReason: string; alternatives?: NewsLink[] }
 export type RelatedWarning = 'FINGERPRINT_FALLBACK' | 'RELATION_CLASSIFICATION_FAILED' | 'TIME_UNKNOWN' | 'RULE_BASED';
-export interface RelatedResult { followUps: RelatedArticle[]; background: RelatedArticle[]; warnings: RelatedWarning[] }
+export type EmptyReason = 'NO_SEARCH_RESULTS' | 'NO_RELEVANT_MATCH' | 'NO_DIRECT_RELATION' | 'DATE_UNVERIFIED' | 'CLASSIFICATION_UNAVAILABLE';
+export interface RelatedResult { followUps: RelatedArticle[]; background: RelatedArticle[]; warnings: RelatedWarning[]; emptyReason?: EmptyReason }
 export type RelatedStage = 'searching' | 'checking' | 'classifying';
 export type Related = (input: RelatedInput, signal: AbortSignal, onProgress?: (stage: RelatedStage) => void) => Promise<RelatedResult>;
 export type SearchNews = (query: string, signal: AbortSignal) => Promise<NewsCandidate[]>;
@@ -81,11 +83,13 @@ export function validateRelations(value: unknown, count: number): RelationDecisi
   return data.relations.map((item: unknown) => {
     if (!item || typeof item !== 'object' || Array.isArray(item)) throw fail();
     const row = item as Record<string, unknown>;
-    if (Object.keys(row).length !== 3 || !Number.isInteger(row.index) || (row.index as number) < 0 || (row.index as number) >= count
+    if (Object.keys(row).some((key) => !['index', 'relation', 'relationReason', 'duplicateOf'].includes(key)) || !Number.isInteger(row.index) || (row.index as number) < 0 || (row.index as number) >= count
       || seen.has(row.index as number) || !['follow_up', 'background', 'related', 'irrelevant'].includes(row.relation as string)
       || typeof row.relationReason !== 'string' || !row.relationReason.trim() || row.relationReason.length > RELATED_LIMITS.reason
-      || /[<>\r\n]/.test(row.relationReason)) throw fail();
+      || /[<>\r\n]/.test(row.relationReason)
+      || (row.duplicateOf !== undefined && row.duplicateOf !== null && (!Number.isInteger(row.duplicateOf) || (row.duplicateOf as number) < 0 || (row.duplicateOf as number) >= (row.index as number)))) throw fail();
     seen.add(row.index as number);
-    return { index: row.index as number, relation: row.relation as Relation, relationReason: row.relationReason.trim() };
+    return { index: row.index as number, relation: row.relation as Relation, relationReason: row.relationReason.trim(),
+      ...(typeof row.duplicateOf === 'number' ? { duplicateOf: row.duplicateOf } : {}) };
   });
 }

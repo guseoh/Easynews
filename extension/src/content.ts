@@ -14,6 +14,26 @@ if (scope.easynewsCapture) {
   let surroundingContext = '';
   let timer: ReturnType<typeof setTimeout>;
   let stopped = false;
+  let selectedRange: Range | undefined;
+  let highlightStyle: HTMLStyleElement | undefined;
+  let highlightTimer: ReturnType<typeof setTimeout> | undefined;
+  let clearFocusOverride: (() => void) | undefined;
+  const focusOriginal = () => {
+    clearFocusOverride?.();
+    const selectedElement = selectedRange?.startContainer.isConnected ? selectedRange.startContainer.parentElement : undefined;
+    const element = selectedElement?.closest<HTMLElement>('article') || selectedElement || document.querySelector<HTMLElement>('article') || document.body;
+    const prior = element.getAttribute('tabindex');
+    element.setAttribute('tabindex', '-1'); element.focus({ preventScroll: true });
+    const restore = () => {
+      if (prior === null) element.removeAttribute('tabindex'); else element.setAttribute('tabindex', prior);
+      element.removeEventListener('blur', restore); clearFocusOverride = undefined;
+    };
+    element.addEventListener('blur', restore, { once: true }); clearFocusOverride = restore;
+  };
+  const clearHighlight = () => {
+    clearTimeout(highlightTimer); highlightStyle?.remove(); highlightStyle = undefined;
+    CSS.highlights?.delete('easynews-reading');
+  };
 
   const capture = () => {
     if (stopped) return;
@@ -23,6 +43,8 @@ if (scope.easynewsCapture) {
       lastUrl = location.href;
       article = undefined;
       surroundingContext = '';
+      selectedRange = undefined; clearHighlight();
+      clearFocusOverride?.();
     }
     article ??= extractArticleContext(document, location.href);
     const selection = window.getSelection();
@@ -35,6 +57,7 @@ if (scope.easynewsCapture) {
       selectedText = text.slice(0, MAX_SELECTION_LENGTH);
       truncated = text.length > MAX_SELECTION_LENGTH;
       surroundingContext = article.confidence === 'low' ? '' : selectionContext(document, selectedText, selection);
+      selectedRange = selection?.rangeCount ? selection.getRangeAt(0).cloneRange() : undefined;
     }
     const page: PageSnapshot = {
       title: article.title,
@@ -59,6 +82,8 @@ if (scope.easynewsCapture) {
     selectedText = '';
     surroundingContext = '';
     article = undefined;
+    selectedRange = undefined; clearHighlight();
+    clearFocusOverride?.();
     clearTimeout(timer);
     document.removeEventListener('selectionchange', schedule);
     window.removeEventListener('pageshow', capture);
@@ -67,8 +92,31 @@ if (scope.easynewsCapture) {
     chrome.runtime.onMessage.removeListener(onMessage);
     delete scope.easynewsCapture;
   };
-  const onMessage = (message: unknown) => {
-    if (message && typeof message === 'object' && 'type' in message && message.type === 'STOP_CAPTURE') stop();
+  const onMessage = (message: unknown, sender: chrome.runtime.MessageSender, respond: (value: unknown) => void) => {
+    if (sender.id !== chrome.runtime.id || !message || typeof message !== 'object' || !('type' in message)) return;
+    if (message.type === 'STOP_CAPTURE') { stop(); return; }
+    if (message.type === 'FOCUS_ARTICLE') {
+      if (stopped || !('url' in message) || message.url !== location.href || lastUrl !== location.href) { respond({ ok: false }); return; }
+      focusOriginal(); respond({ ok: true }); return;
+    }
+    if (message.type !== 'REVEAL_SELECTION') return;
+    if (stopped || !('url' in message) || message.url !== location.href || lastUrl !== location.href
+      || !selectedRange?.startContainer.isConnected || selectedRange.toString().trim().slice(0, MAX_SELECTION_LENGTH) !== selectedText) { respond({ ok: false }); return; }
+    const node = selectedRange.startContainer;
+    const element = node.nodeType === Node.ELEMENT_NODE ? node as Element : node.parentElement;
+    element?.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    focusOriginal();
+    clearHighlight();
+    if (typeof Highlight !== 'undefined' && CSS.highlights) {
+      highlightStyle = document.createElement('style');
+      highlightStyle.textContent = '::highlight(easynews-reading) { background-color: #236fce; color: #fff; }';
+      document.head.append(highlightStyle);
+      CSS.highlights.set('easynews-reading', new Highlight(selectedRange));
+      highlightTimer = setTimeout(clearHighlight, 2_000);
+    } else {
+      const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(selectedRange.cloneRange());
+    }
+    respond({ ok: true });
   };
   scope.easynewsCapture = capture;
   document.addEventListener('selectionchange', schedule);

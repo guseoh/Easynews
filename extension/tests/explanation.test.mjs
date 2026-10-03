@@ -6,7 +6,7 @@ import { buildSync } from 'esbuild';
 const code = buildSync({ entryPoints: ['src/explanation.ts'], bundle: true, write: false, format: 'cjs' }).outputFiles[0].text;
 function load() {
   const module = { exports: {} };
-  runInNewContext(code, { module, exports: module.exports, chrome: { runtime: { id: 'test-extension' } }, AbortController });
+  runInNewContext(code, { module, exports: module.exports, chrome: { runtime: { id: 'test-extension' } }, AbortController, TextDecoder });
   return module.exports;
 }
 
@@ -50,6 +50,17 @@ test('explanation sends bounded surrounding context but never the extracted arti
   assert.equal(body.textContent, undefined);
 });
 
+test('focus and question options send current minimal context without previous answers', async () => {
+  const { requestExplanation } = load(); let body;
+  const fetcher = async (_url, options) => { body = JSON.parse(options.body); return Response.json({ answer: '설명' }); };
+  await requestExplanation('simple', { title: '기사', selectedText: '공실률 4.0%' }, new AbortController().signal, fetcher, undefined,
+    { depth: 'detailed', focusText: '4.0%', question: '이 비율의 뜻은?' });
+  assert.equal(body.focusText, '4.0%'); assert.equal(body.depth, 'detailed');
+  assert.equal(body.question, '이 비율의 뜻은?'); assert.equal(body.previousAnswer, undefined);
+  await assert.rejects(requestExplanation('simple', { title: '', selectedText: '문장' }, new AbortController().signal,
+    async () => { assert.fail('must reject before network'); }, undefined, { focusText: '없는 용어' }), /선택 문장/);
+});
+
 test('invalidation aborts and discards an answer that arrives after a selection or page change', async () => {
   const { ExplanationSession } = load();
   const session = new ExplanationSession();
@@ -71,4 +82,21 @@ test('starting another mode cancels the previous mode and ignores its late error
   assert.equal(await session.run(async () => '배경 설명'), '배경 설명');
   fail(new Error('old error'));
   assert.equal(await old, undefined);
+});
+
+test('streamed explanation displays bounded drafts and requires a final answer', async () => {
+  const { requestExplanation } = load();
+  const signal = new AbortController().signal;
+  const drafts = [];
+  const stream = (lines) => new Response(lines.map((line) => JSON.stringify(line)).join('\n') + '\n', { headers: { 'Content-Type': 'application/x-ndjson' } });
+  const result = await requestExplanation('simple', { title: '기사', selectedText: '문장' }, signal,
+    async (_url, options) => {
+      assert.equal(options.headers.Accept, 'application/x-ndjson');
+      return stream([{ delta: '첫 ' }, { delta: '문단' }, { answer: '첫 문단\n\n다음 문단' }]);
+    }, (text) => drafts.push(text));
+  assert.equal(result, '첫 문단\n\n다음 문단');
+  assert.deepEqual(drafts, ['첫 ', '첫 문단']);
+  await assert.rejects(requestExplanation('simple', { title: '', selectedText: '문장' }, signal, async () => stream([{ delta: '미완료' }]), () => {}), /완료되지/);
+  await assert.rejects(requestExplanation('simple', { title: '', selectedText: '문장' }, signal, async () => stream([{ delta: '가'.repeat(8_001) }]), () => {}));
+  await assert.rejects(requestExplanation('simple', { title: '', selectedText: '문장' }, signal, async () => stream([{ error: { code: 'LLM_RATE_LIMIT', message: 'private' } }]), () => {}), /요청 한도/);
 });

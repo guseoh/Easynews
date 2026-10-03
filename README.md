@@ -2,6 +2,8 @@
 
 뉴스 원문을 직접 읽으면서 어려운 문장을 이해하고, 이어지는 기사와 배경 기사를 탐색하는 개인용 리딩 어시스턴트입니다. 경제뿐 아니라 정치·국제·사회·IT 등 일반 뉴스가 대상입니다.
 
+화면 밀도·설명 문단/구분·점진 표시/중지·추천 이유·현재 문장 이해 도구·반복 보도 묶기·단축키의 구현 순서와 검증 범위는 [읽기 개선 7개 task](docs/reading-improvements-tasks.md)에 정리합니다. 설치 Chrome·실제 Plus의 새 기능 QA는 기존 Phase QA와 구분합니다.
+
 **Easynews는 기사 원문을 저장·재배포하지 않고, 사용자가 현재 읽고 있는 기사에서 요청한 최소한의 텍스트만 일시적으로 처리합니다. 관련 뉴스는 제목·출처·링크 중심으로 제공하고 원문은 항상 언론사 페이지에서 읽도록 합니다.**
 
 **Phase 1 — Extension Foundation**, **Phase 2 — AI Explanation**, **Phase 3 — Article Context**, **Phase 4 — Related News**를 구현했습니다. 공식 **Sign in with ChatGPT + ChatGPT plan** 경로는 실제 Plus의 핵심 E2E QA를 통과했습니다. 사용자 요청에 따라 기본 Provider는 ChatGPT plan이며 모델은 **GPT-6 Luna · Extra High**입니다. Phase 4 검색·관계 판정은 GPT-6 Luna · Medium으로 분리합니다. 실제 검증 범위와 제한은 [Web search QA](docs/phase-4-web-search-qa.md)를 참조하세요. Pro는 미검증입니다. 자동 검증·Chrome fixture와 실제 환경 QA를 구분합니다.

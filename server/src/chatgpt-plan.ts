@@ -55,7 +55,7 @@ export class ChatGPTPlanProvider implements AiProvider {
     return this.modelRequest;
   }
 
-  private async request(instructions: string, input: string, signal: AbortSignal, limit: number, effort: 'xhigh' | 'medium' = DEFAULT_CHATGPT_REASONING_EFFORT, timeoutMs = 30_000): Promise<string> {
+  private async request(instructions: string, input: string, signal: AbortSignal, limit: number, effort: 'xhigh' | 'medium' = DEFAULT_CHATGPT_REASONING_EFFORT, timeoutMs = 30_000, onDelta?: (delta: string) => void): Promise<string> {
     const timeout = AbortSignal.timeout(timeoutMs);
     try {
       if (this.localDisconnected) throw new ApiError(401, 'CHATGPT_SIGN_IN_REQUIRED', 'ChatGPT에 연결해 주세요.');
@@ -68,6 +68,7 @@ export class ChatGPTPlanProvider implements AiProvider {
         signal: AbortSignal.any([signal, timeout]), onDelta(delta) {
           received += delta.length;
           if (received > limit) throw new Error('Bounded output exceeded.');
+          onDelta?.(delta);
         },
       });
       if (!result.text.trim() || result.text.length > limit) throw new ApiError(502, 'INVALID_LLM_RESPONSE', 'AI 응답을 읽지 못했습니다. 다시 시도해 주세요.');
@@ -80,9 +81,9 @@ export class ChatGPTPlanProvider implements AiProvider {
     }
   }
 
-  readonly explain: AiProvider['explain'] = async (input, signal) => {
+  readonly explain: AiProvider['explain'] = async (input, signal, onDelta) => {
     const prompt = createPrompt(input);
-    return this.request(prompt.instructions, prompt.input, signal, MAX_ANSWER_LENGTH);
+    return this.request(prompt.instructions, prompt.input, signal, MAX_ANSWER_LENGTH, DEFAULT_CHATGPT_REASONING_EFFORT, 30_000, onDelta);
   };
 
   private async searchResponse(options: StreamResponseOptions) {
