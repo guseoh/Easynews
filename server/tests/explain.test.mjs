@@ -60,6 +60,22 @@ test('streaming transport exposes drafts then a verified completion and safe err
   assert.ok(!events.some((event) => 'answer' in event));
 });
 
+test('reading tools share one explanation call and keep metadata out of HTTP drafts', async (t) => {
+  const marker = '\n\n[EASYNEWS_TOOLS]\n';
+  const raw = '설명 본문' + marker + JSON.stringify({ suggestedQuestions: ['매출과 이익은 어떻게 다른가요?'] });
+  let calls = 0;
+  const { post } = await start(t, async (_input, _signal, onDelta) => {
+    calls++;
+    for (const character of raw) onDelta?.(character);
+    return raw;
+  });
+  const response = await post({ ...input, readingTools: true }, { headers: { ...headers, Accept: 'application/x-ndjson' } });
+  const events = (await response.text()).trim().split('\n').map(JSON.parse);
+  assert.equal(calls, 1);
+  assert.equal(events.filter((event) => event.delta).map((event) => event.delta).join(''), '설명 본문');
+  assert.deepEqual(events.at(-1), { answer: '설명 본문', suggestedQuestions: ['매출과 이익은 어떻게 다른가요?'] });
+});
+
 test('API Key streaming requires response.completed, preserves UTF-8 and remains stateless', async () => {
   const event = (value) => `data: ${JSON.stringify(value)}\r\n\r\n`;
   const text = event({ type: 'response.output_text.delta', delta: '한국어' }) + event({ type: 'response.completed', response: output('한국어') });
@@ -97,6 +113,13 @@ test('questions are bounded to current selection without focused explanation or 
   for (const extra of [{ focusText: '테스트' }, { question: '가'.repeat(301) }, { depth: 'unbounded' }, { history: ['old answer'] }, { previousAnswer: 'old answer' }]) {
     assert.throws(() => validateInput({ ...input, ...extra }), (error) => error.code === 'INVALID_INPUT');
   }
+});
+
+test('sentence structure only uses the selected sentence and rejects invalid flags', () => {
+  const prompt = createPrompt(validateInput({ ...input, structure: true }));
+  assert.match(prompt.instructions, /\[누가\].*\[무엇을\].*\[조건과 관계\]/);
+  assert.match(prompt.instructions, /생략된 주체나 원인을 추측해 채우지 않는다/);
+  assert.throws(() => validateInput({ ...input, structure: 'true' }), (error) => error.code === 'INVALID_INPUT');
 });
 
 test('only configured extension can call explain; preflight is narrow', async (t) => {

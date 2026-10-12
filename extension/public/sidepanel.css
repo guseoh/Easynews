@@ -116,6 +116,17 @@ main { min-width: 0; }
 .reading-options { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-top: 6px; color: var(--text-muted); font-size: 11px; }
 .reading-options select { margin-left: 4px; padding: 3px 5px; border: 1px solid var(--border); border-radius: 5px; color: var(--text); background: var(--surface); }
 .reading-form { display: grid; gap: 5px; margin: 9px 0 0; font-size: 11px; }
+.quick-questions { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 5px; }
+.suggested-questions { display: grid; gap: 5px; margin-bottom: 5px; }
+.suggested-questions .button { justify-content: flex-start; text-align: left; line-height: 1.5; overflow-wrap: anywhere; }
+.context-preview { margin-top: 9px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
+#explain-structure { margin-top: 6px; }
+.context-preview summary { cursor: pointer; color: var(--accent); font-size: 12px; }
+.context-excerpt { margin: 8px 0 0; font-size: 13px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.context-excerpt mark { background: var(--accent-soft); color: var(--text); }
+.evidence-quote { margin: 8px 0 0; padding-left: 9px; border-left: 2px solid var(--accent); font-size: 13px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+html[data-text-size="normal"] .evidence-quote { font-size: 15px; }
+html[data-text-size="normal"] .context-excerpt { font-size: 15px; }
 .input-action { display: flex; gap: 5px; }
 .input-action input { flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); color: var(--text); font: inherit; }
 .input-action input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
@@ -123,16 +134,28 @@ main { min-width: 0; }
 .section-heading-row .caption { text-align: right; }
 .explain-actions { display: flex; flex-wrap: wrap; gap: 4px; }
 .explain-actions .button { flex: 1 1 92px; }
+.explain-actions .button[data-mode="simple"] { flex-basis: 100%; min-height: 36px; font-size: 13px; }
+.mode-help { margin: 7px 0 0; }
+.explain-hint { margin-top: 8px; }
+.reading-steps { margin: 8px 0 0; padding-left: 20px; font-size: 13px; line-height: 1.7; }
+.reading-steps li + li { margin-top: 4px; }
+#check-ai-connection { margin-top: 5px; }
 #explain-status { margin-top: 9px; }
 #retry-explain { margin-top: 7px; }
-.answer-card { margin-top: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-subtle); }
+.answer-card { margin-top: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-subtle); }
 .answer-card h3 { margin: 0 0 6px; color: var(--text-muted); font-size: 11px; font-weight: 650; }
 #answer { margin: 0; max-width: 72ch; color: var(--text); font-size: 13px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
-.answer-section + .answer-section { margin-top: 12px; }
-.answer-label { margin: 0 0 4px; color: var(--accent); font-size: 11px; font-weight: 650; }
+.answer-section + .answer-section { margin-top: 16px; }
+.answer-label { margin: 0 0 5px; color: var(--accent); font-size: 12px; font-weight: 650; }
 .answer-section p { margin: 0; }
-.answer-section p + p { margin-top: .75em; }
+.answer-section p + p { margin-top: .85em; }
+.answer-actions:has(button:not([hidden])) { display: grid; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+#return-status:empty { display: none; }
 .related-intro { justify-content: space-between; align-items: center; gap: 10px; }
+.related-scope { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--text-muted); font-size: 12px; }
+.related-scope select { min-width: 0; max-width: 100%; padding: 5px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); color: var(--text); }
+#related-scope-help { margin: 7px 0; }
+#related-selection { margin-bottom: 10px; }
 .related-intro .caption { margin-top: 3px; }
 #find-related { flex: 0 0 auto; }
 .related-status { margin-top: 10px; }
@@ -204,4 +227,4 @@ html[data-density="comfortable"] .news-list { gap: 8px; }
 html[data-density="comfortable"] .news-card { padding: 11px 12px 9px; }
 html[data-density="comfortable"] .empty-state { margin-top: 16px; padding: 14px; }
 html[data-density="comfortable"] footer { margin-top: 18px; padding-top: 9px; }
-html[data-text-size="normal"] .selection-card, html[data-text-size="normal"] #answer { font-size: 14px; }
+html[data-text-size="normal"] .selection-card, html[data-text-size="normal"] #answer { font-size: 15px; line-height: 1.8; }

@@ -7,6 +7,17 @@ const code = buildSync({ entryPoints: ['src/related-news.ts'], bundle: true, wri
 const module = { exports: {} };
 runInNewContext(code, { module, exports: module.exports, URL, TextDecoder, chrome: { runtime: { id: 'test-extension' } } });
 const { requestRelated, validateRelatedResult } = module.exports;
+
+test('selection background search sends bounded selected context without the article lead', async () => {
+  let body;
+  const current = { title: '현재 기사', url: 'https://news.example/current', textContent: '기사 도입부'.repeat(30), confidence: 'medium', extractionMethod: 'fallback' };
+  await requestRelated(current, new AbortController().signal, async (_url, options) => {
+    body = JSON.parse(options.body); return Response.json({ followUps: [], background: [], warnings: [] });
+  }, undefined, { selectedText: '대출 금리의 결정 구조', surroundingContext: '문맥'.repeat(1000) });
+  assert.equal(body.scope, 'selection'); assert.equal(body.textContent, '');
+  assert.equal(body.selectedText, '대출 금리의 결정 구조'); assert.equal(body.surroundingContext.length, 1600);
+  await assert.rejects(requestRelated(current, new AbortController().signal, async () => { assert.fail('network must not run'); }, undefined, { selectedText: '가'.repeat(2001) }));
+});
 const article = { title: '현재 기사', url: 'https://news.example/current', canonicalUrl: 'https://publisher.example/current', siteName: '출처', publishedAt: '2026-10-02', textContent: '합성 도입부 '.repeat(250), confidence: 'high', extractionMethod: 'readability', selectedText: 'private selection', surroundingContext: 'private surrounding' };
 const row = { title: '<b>제목도 일반 텍스트</b>', url: 'https://publisher.example/after', source: '언론사', relationReason: '현재 사건 이후의 반응' };
 const result = { followUps: [row], background: [], warnings: [] };

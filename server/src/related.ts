@@ -13,7 +13,8 @@ export function createRelatedService(search: SearchNews, llm?: RelatedLlm, optio
     try {
       requestSignal.throwIfAborted();
       onProgress?.('searching');
-      let fingerprint = fallbackFingerprint(input);
+      let fingerprint = fallbackFingerprint(input.scope === 'selection' ? { ...input, title: input.selectedText!.slice(0, 300), textContent: input.selectedText! } : input);
+      if (input.scope === 'selection') fingerprint.searchQueries = [`${fingerprint.keywords.slice(0, 5).join(' ')} 배경 설명`.slice(0, 100)];
       if (llm) {
         try { fingerprint = validateFingerprint(await llm.fingerprint(input, requestSignal)); }
         catch (error) { requestSignal.throwIfAborted(); if (error instanceof ApiError && error.code.startsWith('CHATGPT_') && error.code !== 'CHATGPT_FAILED') throw error; warnings.push('FINGERPRINT_FALLBACK'); }
@@ -21,6 +22,7 @@ export function createRelatedService(search: SearchNews, llm?: RelatedLlm, optio
       // The existing query interface remains intact. Hosted search receives all
       // event metadata once, rather than three expensive parallel plan requests.
       const queries = options.combinedSearch ? [JSON.stringify({ title: input.title, event: fingerprint.event,
+        ...(input.scope === 'selection' ? { scope: 'selection', selectedText: input.selectedText, surroundingContext: input.surroundingContext } : {}),
         entities: fingerprint.entities, organizations: fingerprint.organizations, people: fingerprint.people,
         keywords: fingerprint.keywords, queries: fingerprint.searchQueries, publishedAt: input.publishedAt })]
         : [...new Set(fingerprint.searchQueries)].slice(0, RELATED_LIMITS.queries);
@@ -33,7 +35,7 @@ export function createRelatedService(search: SearchNews, llm?: RelatedLlm, optio
       }
       requestSignal.throwIfAborted();
       onProgress?.('classifying');
-      let decisions = fallbackRelations(input, candidates);
+      let decisions = input.scope === 'selection' ? [] : fallbackRelations(input, candidates);
       if (llm && candidates.length) {
         try { decisions = validateRelations({ relations: await llm.classify(input, fingerprint, candidates, requestSignal) }, candidates.length); }
         catch (error) { requestSignal.throwIfAborted(); if (error instanceof ApiError && error.code.startsWith('CHATGPT_') && error.code !== 'CHATGPT_FAILED') throw error; warnings.push('RELATION_CLASSIFICATION_FAILED'); }
@@ -44,6 +46,7 @@ export function createRelatedService(search: SearchNews, llm?: RelatedLlm, optio
       if (dateTime(input.publishedAt) === undefined || candidates.some((candidate) => dateTime(candidate.publishedAt) === undefined)) warnings.push('TIME_UNKNOWN');
       for (const decision of decisions.sort((a, b) => a.index - b.index)) {
         const candidate = candidates[decision.index]!;
+        if (input.scope === 'selection' && decision.relation !== 'background') continue;
         const checked = enforceTime(input, candidate, decision);
         if (decision.relation === 'follow_up' && checked.relation !== 'follow_up'
           && (dateTime(input.publishedAt) === undefined || dateTime(candidate.publishedAt) === undefined)) dateBlocked = true;

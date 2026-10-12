@@ -4,10 +4,12 @@ export const MAX_EXPLAIN_TITLE = 300;
 export const MAX_EXPLAIN_ANSWER = 8_000;
 export type ExplainMode = 'simple' | 'why' | 'background';
 export interface ExplainSelection { title: string; selectedText: string; surroundingContext?: string }
-export interface ExplainOptions { depth?: 'short' | 'detailed'; question?: string }
+export interface ExplainOptions { depth?: 'short' | 'detailed'; question?: string; structure?: boolean; readingTools?: boolean }
+export interface EvidenceQuote { quote: string; source: 'selectedText' | 'surroundingContext' }
+export interface ExplanationDetails { suggestedQuestions?: string[]; evidence?: EvidenceQuote[] }
 
 export async function requestExplanation(
-  mode: ExplainMode, selection: ExplainSelection, signal: AbortSignal, fetcher: typeof fetch = fetch, onDelta?: (text: string) => void, options: ExplainOptions = {},
+  mode: ExplainMode, selection: ExplainSelection, signal: AbortSignal, fetcher: typeof fetch = fetch, onDelta?: (text: string) => void, options: ExplainOptions = {}, onDetails?: (details: ExplanationDetails) => void,
 ): Promise<string> {
   if (!selection.selectedText.trim() || selection.selectedText.length > MAX_EXPLAIN_SELECTION) {
     throw new Error('설명할 문장을 1~2,000자 선택해 주세요.');
@@ -19,6 +21,8 @@ export async function requestExplanation(
     body: JSON.stringify({ mode, selectedText: selection.selectedText, articleTitle: selection.title.slice(0, MAX_EXPLAIN_TITLE),
       ...(selection.surroundingContext ? { surroundingContext: selection.surroundingContext.slice(0, 1_600) } : {}),
       ...(options.depth ? { depth: options.depth } : {}),
+      ...(options.structure ? { structure: true } : {}),
+      ...(options.readingTools ? { readingTools: true } : {}),
       ...(options.question ? { question: options.question.trim() } : {}) }),
     cache: 'no-store', signal,
   });
@@ -33,6 +37,26 @@ export async function requestExplanation(
     || typeof value.answer !== 'string' || !value.answer.trim() || value.answer.length > MAX_EXPLAIN_ANSWER) {
     throw new Error('AI 응답을 읽지 못했습니다. 다시 시도해 주세요.');
   }
+  const details: ExplanationDetails = {};
+  if ('suggestedQuestions' in value && Array.isArray(value.suggestedQuestions)) {
+    details.suggestedQuestions = [...new Set(value.suggestedQuestions.filter((question): question is string => typeof question === 'string'
+      && question.trim().length >= 5 && question.length <= 300).map((question) => question.trim()))].slice(0, 2);
+  }
+  if ('evidence' in value && Array.isArray(value.evidence) && value.answer.includes('[기사에서 확인]')) {
+    details.evidence = [];
+    for (const item of value.evidence) {
+      if (!item || typeof item !== 'object' || typeof item.quote !== 'string'
+        || !['selectedText', 'surroundingContext'].includes(item.source)) continue;
+      const source = item.source as EvidenceQuote['source'];
+      const quote = item.quote.trim();
+      if (quote.length < 2 || quote.length > 240 || !selection[source]?.includes(quote)
+        || details.evidence.some((entry) => entry.quote === quote && entry.source === source)) continue;
+      details.evidence.push({ quote, source });
+      if (details.evidence.length === 3) break;
+    }
+  }
+  signal.throwIfAborted();
+  onDetails?.(details);
   return value.answer;
 }
 

@@ -5,7 +5,7 @@ import { ApiError } from '../dist/explain.js';
 import { validateFingerprint, validateRelatedInput, validateRelations, dateTime } from '../dist/related-types.js';
 import { canonicalizeUrl, deduplicate, titleSimilarity, fallbackFingerprint, rankCandidates, fallbackRelations, enforceTime, sourceDiversity } from '../dist/news-ranking.js';
 import { normalizeSearchResults, stripNewsHtml, createNaverSearch } from '../dist/naver.js';
-import { createRelatedLlm } from '../dist/related-llm.js';
+import { createRelatedLlm, createRelatedTaskAdapter } from '../dist/related-llm.js';
 import { createRelatedService } from '../dist/related.js';
 
 const input = { title: '한국은행 기준금리 동결', url: 'https://news.example/current', siteName: '현재 언론사', publishedAt: '2026-10-02T10:00:00+09:00', textContent: '한국은행 기준금리와 물가 상황을 살펴봅니다. '.repeat(10) };
@@ -28,6 +28,48 @@ test('related input is minimal, bounded and rejects article bodies, selection an
 test('fingerprint runtime schema rejects unknown fields, invalid lists and excessive queries', () => {
   assert.deepEqual(validateFingerprint(fingerprint), fingerprint);
   for (const value of [{ ...fingerprint, keywords: [] }, { ...fingerprint, people: [123] }, { ...fingerprint, extra: 'data' }, { ...fingerprint, searchQueries: ['a', 'b', 'c', 'd'] }, { ...fingerprint, event: '' }]) assert.throws(() => validateFingerprint(value));
+});
+
+test('selection scope accepts only bounded current context and omits the article lead', () => {
+  const selected = { ...input, scope: 'selection', selectedText: '대출 금리는 어떻게 정해지는가?', surroundingContext: '금리의 결정 구조를 설명한다.' };
+  const checked = validateRelatedInput(selected);
+  assert.equal(checked.textContent, ''); assert.equal(checked.selectedText, selected.selectedText);
+  assert.equal(validateRelatedInput({ ...selected, textContent: '' }).scope, 'selection');
+  for (const extra of [{ selectedText: '' }, { selectedText: '가'.repeat(2001) }, { surroundingContext: '가'.repeat(1601) }, { scope: 'all' }, { scope: undefined }]) {
+    assert.throws(() => validateRelatedInput({ ...selected, ...extra }), (error) => error.code === 'INVALID_RELATED_INPUT');
+  }
+});
+
+test('selection searches use the selected topic and return background only with existing date constraints', async () => {
+  const selected = validateRelatedInput({ ...input, scope: 'selection', selectedText: '대출 금리의 결정 구조', textContent: '' });
+  const topic = { ...fingerprint, event: '대출 금리', keywords: ['대출', '금리'], searchQueries: ['대출 금리 배경'] };
+  const rows = [candidate('대출 금리 결정 구조와 배경', 'topic-before', '2026-10-01T10:00:00+09:00'),
+    candidate('대출 금리 새 발표 이후 반응', 'topic-after'), candidate('대출 금리 설명 기사', 'topic-later')];
+  let query;
+  const service = createRelatedService(async (value) => { query = JSON.parse(value); return rows; }, {
+    fingerprint: async () => topic,
+    classify: async (_current, _event, shortlist) => shortlist.map((row, index) => ({ index, relation: row.url.endsWith('topic-after') ? 'follow_up' : 'background', relationReason: '대출 금리의 결정 구조를 이해하는 데 도움이 됩니다.' })),
+  }, { combinedSearch: true });
+  const result = await service(selected, signal());
+  assert.equal(query.scope, 'selection'); assert.equal(query.selectedText, selected.selectedText);
+  assert.equal(query.event, '대출 금리'); assert.equal(query.textContent, undefined);
+  assert.equal(result.followUps.length, 0); assert.equal(result.background.length, 1);
+  assert.match(result.background[0].url, /topic-before$/);
+});
+
+test('selection scope instructions reach fingerprint and relation tasks without article-wide fallback', async () => {
+  const calls = [];
+  const llm = createRelatedTaskAdapter(async (name, _schema, instructions, data) => {
+    calls.push({ name, instructions, data });
+    return name === 'event_fingerprint' ? fingerprint : { relations: [{ index: 0, relation: 'background', relationReason: '직접 배경' }] };
+  });
+  const selected = validateRelatedInput({ ...input, scope: 'selection', selectedText: '한국은행 기준금리의 결정 구조' });
+  await llm.fingerprint(selected, signal()); await llm.classify(selected, fingerprint, [candidates[1]], signal());
+  assert.ok(calls.every((call) => call.instructions.includes('선택 문장을 이해')));
+  assert.equal(calls[0].data.selectedText, selected.selectedText);
+  assert.equal(calls[1].data.current.selectedText, selected.selectedText);
+  const result = await createRelatedService(async () => candidates)(selected, signal());
+  assert.equal(result.background.length, 0); assert.equal(result.followUps.length, 0);
 });
 
 test('fallback search queries are bounded and preserve the event when LLM is unavailable', () => {

@@ -52,13 +52,20 @@ export function createRelatedLlm(config: LlmConfig, fetcher: typeof fetch = fetc
 
 export type RelatedTaskRequest = (name: string, schema: object, instructions: string, input: unknown, signal: AbortSignal) => Promise<unknown>;
 export function createRelatedTaskAdapter(request: RelatedTaskRequest): RelatedLlm {
+  const selectionTask = ' scope=selection일 때는 선택 문장을 이해하는 데 필요한 개념·제도·관계에 집중한다. 제목은 참고 문맥이다. 검색어는 해당 배경을 설명하는 언론 기사에 맞추고 기사 전체의 후속 사건으로 확장하지 않는다. 관계 판정의 background는 선택 문장의 개념·제도·관계를 직접 설명하는 기사이며, 어떤 부분을 이해하는 데 도움이 되는지 relationReason에 구체적으로 쓴다. 후속 보도·주제만 같은 기사는 related로 판정한다. 기존 날짜 제약과 정보 부족 시 추천하지 않는 원칙을 유지한다.';
+  const scopedRequest: RelatedTaskRequest = (name, schema, instructions, data, signal) => {
+    const scope = data as { scope?: string; current?: { scope?: string } };
+    return request(name, schema, instructions + (scope.scope === 'selection' || scope.current?.scope === 'selection' ? selectionTask : ''), data, signal);
+  };
   return {
-    fingerprint: async (input, signal) => validateFingerprint(await request('event_fingerprint', fingerprintSchema,
+    fingerprint: async (input, signal) => validateFingerprint(await scopedRequest('event_fingerprint', fingerprintSchema,
       '사건 특징을 JSON으로 추출한다. event 최대 200자, 각 목록 최대 8개·항목 60자. entities는 인물·기관·장소의 짧은 고유명사만 넣고 수치·문장·사건 설명은 넣지 않는다. keywords는 제목과 발췌에서 확인되는 짧은 독립 명사 1~8개다. 제목 매칭에 쓰이므로 긴 구절을 한 키워드로 묶지 않는다(예: 서울, 아파트, 대출, 소득 / 알래스카, LNG, 투자). searchQueries는 1~3개·각 100자 이내다. 사건 주체와 핵심 사건을 유지하는 검색어로 후속 보도와 이전 배경을 찾는다. 본문에 없는 인물·기관은 추측하지 않는다.',
-      { title: input.title, excerpt: input.textContent }, signal)),
-    classify: async (input, fingerprint, candidates, signal) => validateRelations(await request('news_relations', relationsSchema,
+      { title: input.title, excerpt: input.textContent,
+        ...(input.scope === 'selection' ? { scope: 'selection', selectedText: input.selectedText, surroundingContext: input.surroundingContext } : {}) }, signal)),
+    classify: async (input, fingerprint, candidates, signal) => validateRelations(await scopedRequest('news_relations', relationsSchema,
       `각 후보 index에 정확히 한 판정을 반환한다. follow_up은 같은 사건 이후의 구체적 새 진행·반응, background는 그 사건의 직접적인 원인·이전 상황, related는 같은 주제만, irrelevant는 무관함이다. 동일 발표를 다른 언론사가 다시 보도한 것은 새 후속 사건이 아니며, 먼저 발행됐다는 이유만으로 배경이 되지도 않는다. 단순 유사 주제·일반 정보·블로그·목록·동영상·보고서는 추천하지 않는다. relationReason은 한국어 한 문장 최대 ${RELATED_LIMITS.reason}자다. follow_up이면 현재 기사와 비교해 새롭게 달라진 진행·반응이 무엇인지, background이면 어떤 이전 사건·제도·상황이 현재 사건을 이해하는 데 어떻게 도움이 되는지 구체적으로 설명한다. '관련된 기사', '배경을 알 수 있다'처럼 어느 기사에도 붙일 수 있는 말이나 제목 반복으로 끝내지 않고 본문 요약은 하지 않는다. 제공된 metadata와 짧은 검색 발췌로 관계를 확인할 수 없으면 related/irrelevant로 판정하며 근거 없는 추천 이유를 만들지 않는다. temporal은 확인된 발행 시각만으로 계산한 제약이다. before/equal/unknown은 follow_up으로, after는 background로 판정하지 않는다. 날짜를 만들거나 추측하지 않는다.`,
-      { current: { title: input.title, publishedAt: input.publishedAt, excerpt: input.textContent.slice(0, 600) }, event: fingerprint.event,
+      { current: { title: input.title, publishedAt: input.publishedAt, excerpt: input.textContent.slice(0, 600),
+          ...(input.scope === 'selection' ? { scope: 'selection', selectedText: input.selectedText, surroundingContext: input.surroundingContext } : {}) }, event: fingerprint.event,
         candidates: candidates.map((candidate, index) => ({ index, title: candidate.title, source: candidate.source, publishedAt: candidate.publishedAt,
           ...(candidate.description ? { searchExcerpt: candidate.description.slice(0, 240) } : {}),
           temporal: temporal(input.publishedAt, candidate.publishedAt) })),

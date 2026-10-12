@@ -1,4 +1,4 @@
-const labels = ['핵심 뜻', '기사에서 확인', '일반적인 설명', '확인할 수 없음'] as const;
+const labels = ['핵심 뜻', '기사에서 확인', '일반적인 설명', '확인할 수 없음', '누가', '무엇을', '조건과 관계'] as const;
 export interface ExplanationSection { label?: typeof labels[number]; paragraphs: string[] }
 
 export function explanationSections(text: string): ExplanationSection[] {

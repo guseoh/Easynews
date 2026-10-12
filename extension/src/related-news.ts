@@ -98,11 +98,15 @@ async function readProgress(response: Response, signal: AbortSignal, onProgress?
     }
   } finally { await reader.cancel().catch(() => undefined); reader.releaseLock(); }
 }
-export async function requestRelated(article: ArticleContext, signal: AbortSignal, fetcher: typeof fetch = fetch, onProgress?: (stage: RelatedStage) => void): Promise<RelatedResult> {
-  if (article.confidence === 'low' || !article.textContent || article.textContent.trim().length < 80) throw new Error(RELATED_MESSAGES.CONTEXT_INSUFFICIENT);
+export interface RelatedSelection { selectedText: string; surroundingContext?: string }
+export async function requestRelated(article: ArticleContext, signal: AbortSignal, fetcher: typeof fetch = fetch, onProgress?: (stage: RelatedStage) => void, selection?: RelatedSelection): Promise<RelatedResult> {
+  if (selection ? !selection.selectedText.trim() || selection.selectedText.length > 2_000
+    : article.confidence === 'low' || !article.textContent || article.textContent.trim().length < 80) throw new Error(RELATED_MESSAGES.CONTEXT_INSUFFICIENT);
   const response = await fetcher('http://127.0.0.1:3000/api/related', {
     method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Easynews-Extension': chrome.runtime.id, Accept: 'application/x-ndjson' }, cache: 'no-store', signal,
-    body: JSON.stringify({ title: article.title.slice(0, 300), url: article.url, textContent: article.textContent.slice(0, 1200),
+    body: JSON.stringify({ title: article.title.slice(0, 300), url: article.url, textContent: selection ? '' : article.textContent!.slice(0, 1200),
+      ...(selection ? { scope: 'selection', selectedText: selection.selectedText,
+        ...(selection.surroundingContext ? { surroundingContext: selection.surroundingContext.slice(0, 1_600) } : {}) } : {}),
       ...(article.canonicalUrl ? { canonicalUrl: article.canonicalUrl } : {}),
       ...(article.siteName ? { siteName: article.siteName } : {}), ...(article.publishedAt ? { publishedAt: article.publishedAt } : {}),
     }),

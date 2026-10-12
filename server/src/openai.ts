@@ -12,7 +12,7 @@ export function createExplainer(config: LlmConfig, fetcher: typeof fetch = fetch
       const response = await fetcher('https://api.openai.com/v1/responses', {
         method: 'POST',
         headers: { Authorization: `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: config.model, ...createPrompt(input), store: false, max_output_tokens: input.depth === 'detailed' ? 1_800 : 1_200, ...(onDelta ? { stream: true } : {}) }),
+        body: JSON.stringify({ model: config.model, ...createPrompt(input), store: false, max_output_tokens: (input.depth === 'detailed' ? 1_800 : 1_200) + (input.readingTools ? 600 : 0), ...(onDelta ? { stream: true } : {}) }),
         signal: AbortSignal.any([signal, timeout]),
       });
       if (!response.ok) {

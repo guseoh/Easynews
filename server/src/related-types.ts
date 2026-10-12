@@ -1,7 +1,7 @@
 import { ApiError } from './explain.js';
 
 export const RELATED_LIMITS = { title: 300, url: 2_048, siteName: 120, publishedAt: 80, textContent: 1_200, reason: 180, queries: 3, searchDisplay: 20, shortlist: 12, perGroup: 4, perSource: 2 } as const;
-export interface RelatedInput { title: string; url: string; canonicalUrl?: string; siteName?: string; publishedAt?: string; textContent: string }
+export interface RelatedInput { title: string; url: string; canonicalUrl?: string; siteName?: string; publishedAt?: string; textContent: string; scope?: 'selection'; selectedText?: string; surroundingContext?: string }
 export interface EventFingerprint { event: string; entities: string[]; organizations: string[]; people: string[]; locations: string[]; keywords: string[]; searchQueries: string[] }
 export interface NewsCandidate { title: string; url: string; originalUrl?: string; description?: string; publishedAt?: string; source: string }
 export type Relation = 'follow_up' | 'background' | 'related' | 'irrelevant';
@@ -42,17 +42,24 @@ export function validateRelatedInput(value: unknown): RelatedInput {
   const fail = () => new ApiError(400, 'INVALID_RELATED_INPUT', '관련 뉴스를 찾을 기사 정보를 확인해 주세요.');
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw fail();
   const data = value as Record<string, unknown>;
-  const fields = ['title', 'url', 'canonicalUrl', 'siteName', 'publishedAt', 'textContent'];
+  const fields = ['title', 'url', 'canonicalUrl', 'siteName', 'publishedAt', 'textContent', 'scope', 'selectedText', 'surroundingContext'];
   if (Object.keys(data).some((key) => !fields.includes(key)) || typeof data.title !== 'string'
     || !safeUrl(data.url) || typeof data.textContent !== 'string') throw fail();
   for (const [key, limit] of Object.entries(RELATED_LIMITS)) {
     if (data[key] !== undefined && (typeof data[key] !== 'string' || (data[key] as string).length > limit)) throw fail();
   }
   if (data.canonicalUrl !== undefined && !safeUrl(data.canonicalUrl)) throw fail();
-  if (data.title.trim().length < 3 || data.textContent.trim().length < 80) {
+  if (data.scope !== undefined && data.scope !== 'selection') throw fail();
+  if (data.scope === 'selection') {
+    if (typeof data.selectedText !== 'string' || !data.selectedText.trim() || data.selectedText.length > 2_000
+      || (data.surroundingContext !== undefined && (typeof data.surroundingContext !== 'string' || data.surroundingContext.length > 1_600))) throw fail();
+  } else if (data.selectedText !== undefined || data.surroundingContext !== undefined) throw fail();
+  if (data.title.trim().length < 3 || (data.scope !== 'selection' && data.textContent.trim().length < 80)) {
     throw new ApiError(422, 'CONTEXT_INSUFFICIENT', '기사 문맥이 부족합니다. 기사 페이지에서 확장 아이콘을 다시 눌러 주세요.');
   }
-  return { title: data.title.trim(), url: safeUrl(data.url)!, textContent: data.textContent.trim(),
+  return { title: data.title.trim(), url: safeUrl(data.url)!, textContent: data.scope === 'selection' ? '' : data.textContent.trim(),
+    ...(data.scope === 'selection' ? { scope: 'selection' as const, selectedText: (data.selectedText as string).trim(),
+      ...(data.surroundingContext ? { surroundingContext: (data.surroundingContext as string).trim() } : {}) } : {}),
     ...(data.canonicalUrl ? { canonicalUrl: safeUrl(data.canonicalUrl)! } : {}),
     ...(data.siteName ? { siteName: (data.siteName as string).trim() } : {}),
     ...(data.publishedAt ? { publishedAt: (data.publishedAt as string).trim() } : {}),

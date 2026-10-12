@@ -61,6 +61,21 @@ test('depth and question options send current minimal context without previous a
     async () => { assert.fail('must reject before network'); }, undefined, { question: ' ' }), /질문/);
 });
 
+test('reading tools stay bounded and evidence must match the supplied current context', async () => {
+  const { requestExplanation } = load(); let details; let body;
+  await requestExplanation('simple', { title: '기사', selectedText: '매출은 늘고 이익은 줄었다.', surroundingContext: '원재료 비용이 올랐다.' }, new AbortController().signal,
+    async (_url, options) => {
+      body = JSON.parse(options.body);
+      return Response.json({ answer: '[기사에서 확인]\n매출과 비용의 관계.', suggestedQuestions: ['매출과 이익은 어떻게 다른가요?', 123, '가'.repeat(301)], evidence: [
+        { quote: '매출은 늘고', source: 'selectedText' }, { quote: '원재료 비용이 올랐다.', source: 'surroundingContext' },
+        { quote: '기사에 없는 구절', source: 'selectedText' }, { quote: '매출은 늘고', source: 'articleTitle' },
+      ] });
+    }, undefined, { readingTools: true, structure: true }, (value) => { details = value; });
+  assert.equal(body.readingTools, true); assert.equal(body.structure, true); assert.equal(body.previousAnswer, undefined);
+  assert.deepEqual(Array.from(details.suggestedQuestions), ['매출과 이익은 어떻게 다른가요?']);
+  assert.equal(details.evidence.length, 2); assert.equal(details.evidence[1].source, 'surroundingContext');
+});
+
 test('invalidation aborts and discards an answer that arrives after a selection or page change', async () => {
   const { ExplanationSession } = load();
   const session = new ExplanationSession();

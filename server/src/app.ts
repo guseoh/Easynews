@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { ApiError, validateInput, MAX_ANSWER_LENGTH } from './explain.js';
+import { parseReadingTools, ReadingToolsStream } from './reading-tools.js';
 import type { Explain } from './openai.js';
 import { validateRelatedInput, type Related } from './related-types.js';
 import { planError, type ChatGPTPlanProvider } from './chatgpt-plan.js';
@@ -127,17 +128,22 @@ export function createApp(config: { extensionId: string; providerId?: string; re
         explanationStream = request.headers.accept === 'application/x-ndjson';
         if (explanationStream) response.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store' });
         let received = 0;
+        const explainInput = input as ReturnType<typeof validateInput>;
+        const toolsStream = explainInput.readingTools ? new ReadingToolsStream() : undefined;
         const answer = await explain(input as ReturnType<typeof validateInput>, controller.signal, explanationStream ? (delta) => {
           received += delta.length;
           if (received > MAX_ANSWER_LENGTH) throw new ApiError(502, 'INVALID_LLM_RESPONSE', 'AI 응답이 너무 깁니다.');
-          if (!controller.signal.aborted) streamLine({ delta });
+          const visible = toolsStream ? toolsStream.push(delta) : delta;
+          if (!controller.signal.aborted && visible) streamLine({ delta: visible });
         } : undefined);
         if (controller.signal.aborted) return;
         if (typeof answer !== 'string' || !answer.trim() || answer.length > MAX_ANSWER_LENGTH) {
           throw new ApiError(502, 'INVALID_LLM_RESPONSE', 'AI 응답을 읽지 못했습니다. 다시 시도해 주세요.');
         }
-        if (explanationStream) { streamLine({ answer }); response.end(); }
-        else send(response, 200, { answer });
+        const result = parseReadingTools(answer, explainInput);
+        if (!result.answer.trim()) throw new ApiError(502, 'INVALID_LLM_RESPONSE', 'AI 설명 본문을 읽지 못했습니다.');
+        if (explanationStream) { streamLine(result); response.end(); }
+        else send(response, 200, result);
       } finally { active--; }
     } catch (error) {
       // Never log request bodies, provider error bodies, selected text, or answers.
