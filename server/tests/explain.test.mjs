@@ -88,13 +88,13 @@ test('schema rejects article bodies, unknown fields and invalid or oversized sel
   assert.equal(validateInput({ mode: 'simple', selectedText: ' 문장 ' }).selectedText, '문장');
 });
 
-test('focused explanation and questions are bounded to current selection without response history', () => {
-  const value = validateInput({ ...input, selectedText: '공실률 4.0%로 상승', focusText: '4.0%', question: '이 수치가 의미하는 것은?', depth: 'detailed' });
+test('questions are bounded to current selection without focused explanation or response history', () => {
+  const value = validateInput({ ...input, selectedText: '공실률 4.0%로 상승', question: '이 수치가 의미하는 것은?', depth: 'detailed' });
   const prompt = createPrompt(value);
-  assert.equal(JSON.parse(prompt.input).focusText, '4.0%');
+  assert.equal(JSON.parse(prompt.input).focusText, undefined);
   assert.equal(JSON.parse(prompt.input).question, '이 수치가 의미하는 것은?');
   assert.match(prompt.instructions, /최대 10문장/);
-  for (const extra of [{ focusText: '발췌에 없는 용어' }, { question: '가'.repeat(301) }, { depth: 'unbounded' }, { history: ['old answer'] }, { previousAnswer: 'old answer' }]) {
+  for (const extra of [{ focusText: '테스트' }, { question: '가'.repeat(301) }, { depth: 'unbounded' }, { history: ['old answer'] }, { previousAnswer: 'old answer' }]) {
     assert.throws(() => validateInput({ ...input, ...extra }), (error) => error.code === 'INVALID_INPUT');
   }
 });

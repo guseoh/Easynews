@@ -23,9 +23,6 @@ const explainStatus = document.querySelector<HTMLParagraphElement>('#explain-sta
 const retry = document.querySelector<HTMLButtonElement>('#retry-explain')!;
 const stopExplain = document.querySelector<HTMLButtonElement>('#stop-explain')!;
 const depthChoice = document.querySelector<HTMLSelectElement>('#explanation-depth')!;
-const focusForm = document.querySelector<HTMLFormElement>('#focus-form')!;
-const focusText = document.querySelector<HTMLInputElement>('#focus-text')!;
-const focusExplain = document.querySelector<HTMLButtonElement>('#focus-explain')!;
 const questionForm = document.querySelector<HTMLFormElement>('#question-form')!;
 const questionText = document.querySelector<HTMLInputElement>('#question-text')!;
 const askQuestion = document.querySelector<HTMLButtonElement>('#ask-question')!;
@@ -68,7 +65,6 @@ let currentKey = '';
 let busy = false;
 let lastMode: ExplainMode | undefined;
 let lastOptions: ExplainOptions = {};
-let pendingMode: { mode: ExplainMode; tabId: number; url: string; expires: number } | undefined;
 let revision = 0;
 let port: chrome.runtime.Port | undefined;
 let closed = false;
@@ -88,15 +84,6 @@ async function connect() {
     const window = await chrome.windows.getCurrent();
     if (closed || window.id === undefined) return;
     port = chrome.runtime.connect({ name: `panel:${window.id}` });
-    port.onMessage.addListener((message: unknown) => {
-      if (closed || !message || typeof message !== 'object') return;
-      if (document.activeElement?.closest('input, textarea, select, [contenteditable]')) return;
-      const value = message as Record<string, unknown>;
-      if (value.type !== 'EXPLAIN_MODE' || !['simple', 'why', 'background'].includes(value.mode as string)
-        || !Number.isInteger(value.tabId) || typeof value.url !== 'string' || typeof value.expires !== 'number' || value.expires <= Date.now()) return;
-      pendingMode = { mode: value.mode as ExplainMode, tabId: value.tabId as number, url: value.url, expires: value.expires };
-      void sync();
-    });
     port.onDisconnect.addListener(() => {
       // Reconnect if Chrome suspends the worker while the panel is still visible.
       if (!closed) setTimeout(() => void connect(), 250);
@@ -186,7 +173,7 @@ function updateButtons() {
   retry.disabled = busy || !canExplain() || !aiEnabled;
   stopExplain.hidden = !busy;
   depthChoice.disabled = busy;
-  focusExplain.disabled = askQuestion.disabled = focusText.disabled = questionText.disabled = busy || !canExplain() || !aiEnabled;
+  askQuestion.disabled = questionText.disabled = busy || !canExplain() || !aiEnabled;
   revealSelection.disabled = currentState?.status !== 'ready' || !currentState.page?.selectedText.trim();
   const article = currentState?.page?.article;
   const canRelate = currentState?.status === 'ready' && article?.confidence !== 'low' && (article?.textContent?.trim().length || 0) >= 80;
@@ -199,7 +186,7 @@ function clearExplanation() {
   busy = false;
   lastMode = undefined;
   lastOptions = {};
-  focusText.value = ''; questionText.value = ''; questionForm.hidden = true;
+  questionText.value = ''; questionForm.hidden = true;
   answer.textContent = '';
   answerCard.hidden = true;
   answerCard.setAttribute('aria-busy', 'false');
@@ -341,14 +328,6 @@ function render(state?: TabState, key = '') {
     explainStatus.textContent = 'AI 설명은 2,000자까지 가능합니다. 설명할 부분만 짧게 선택해 주세요.';
   }
   updateButtons();
-  if (pendingMode && state?.status === 'ready') {
-    const command = pendingMode; pendingMode = undefined;
-    if (command.expires > Date.now() && key === stateKey(command.tabId) && state.page?.url === command.url) {
-      setActiveTab(0, true);
-      if (canExplain()) void explain(command.mode);
-      else explainStatus.textContent = '기사에서 설명할 문장을 먼저 선택해 주세요.';
-    }
-  }
 }
 
 async function explain(mode: ExplainMode, options: ExplainOptions = {}) {
@@ -375,7 +354,7 @@ async function explain(mode: ExplainMode, options: ExplainOptions = {}) {
     if (result === undefined) return;
     busy = false;
     renderAnswer(result);
-    answerTitle.textContent = requestOptions.question ? '현재 문장 질문' : requestOptions.focusText ? '용어·수치 설명'
+    answerTitle.textContent = requestOptions.question ? '현재 문장 질문'
       : mode === 'simple' ? '쉽게 설명' : mode === 'why' ? '왜 그런가' : '배경 설명';
     answerCard.hidden = false;
     answerCard.setAttribute('aria-busy', 'false'); answer.setAttribute('aria-live', 'polite');
@@ -436,27 +415,19 @@ stopExplain.addEventListener('click', () => {
   explainStatus.dataset.loading = 'false'; explainStatus.dataset.state = '';
   retry.hidden = false; updateButtons();
 });
-focusForm.addEventListener('submit', (event) => { event.preventDefault(); void explain('simple', { focusText: focusText.value.trim() }); });
 questionForm.addEventListener('submit', (event) => { event.preventDefault(); void explain(lastMode || 'simple', { question: questionText.value.trim() }); });
 revealSelection.addEventListener('click', () => void returnToArticle());
 
-async function returnToArticle(reveal = true) {
+async function returnToArticle() {
   const key = currentKey; const pageUrl = currentState?.page?.url;
   if (!pageUrl) return;
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (closed || currentKey !== key || tab?.id === undefined || stateKey(tab.id) !== key) return;
-    const result = await chrome.tabs.sendMessage(tab.id, { type: reveal ? 'REVEAL_SELECTION' : 'FOCUS_ARTICLE', url: pageUrl });
+    const result = await chrome.tabs.sendMessage(tab.id, { type: 'REVEAL_SELECTION', url: pageUrl });
     if (!result?.ok) status.textContent = '원문 위치를 찾지 못했습니다. 기사에서 문장을 다시 선택해 주세요.';
   } catch { status.textContent = '원문 위치를 찾지 못했습니다. 기사에서 문장을 다시 선택해 주세요.'; }
 }
-document.addEventListener('keydown', (event) => {
-  if (!event.altKey || !event.shiftKey || event.ctrlKey || event.metaKey || event.repeat
-    || event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable]')) return;
-  if (event.code === 'Digit0') { event.preventDefault(); void returnToArticle(false); }
-  const mode = event.code === 'Digit1' ? 'simple' : event.code === 'Digit2' ? 'why' : event.code === 'Digit3' ? 'background' : undefined;
-  if (mode) { event.preventDefault(); setActiveTab(0, true); void explain(mode); }
-});
 relatedButton.addEventListener('click', () => void findRelated());
 relatedRetry.addEventListener('click', () => void findRelated());
 tabButtons.forEach((tab, index) => {
@@ -515,10 +486,9 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && Object.hasOwn(changes, DENSITY_KEY)) setLayoutPreference('density', changes[DENSITY_KEY]?.newValue);
   if (area === 'local' && Object.hasOwn(changes, TEXT_SIZE_KEY)) setLayoutPreference('textSize', changes[TEXT_SIZE_KEY]?.newValue);
 });
-chrome.tabs.onActivated.addListener(() => { pendingMode = undefined; render(); void sync(); });
+chrome.tabs.onActivated.addListener(() => { render(); void sync(); });
 chrome.tabs.onUpdated.addListener((_tabId, change) => {
   if (change.status || change.url) {
-    if (change.status === 'loading' || change.url) pendingMode = undefined;
     if (currentKey === stateKey(_tabId) && (change.status === 'loading' || change.url)) {
       render();
     }

@@ -95,10 +95,6 @@ if (scope.easynewsCapture) {
   const onMessage = (message: unknown, sender: chrome.runtime.MessageSender, respond: (value: unknown) => void) => {
     if (sender.id !== chrome.runtime.id || !message || typeof message !== 'object' || !('type' in message)) return;
     if (message.type === 'STOP_CAPTURE') { stop(); return; }
-    if (message.type === 'FOCUS_ARTICLE') {
-      if (stopped || !('url' in message) || message.url !== location.href || lastUrl !== location.href) { respond({ ok: false }); return; }
-      focusOriginal(); respond({ ok: true }); return;
-    }
     if (message.type !== 'REVEAL_SELECTION') return;
     if (stopped || !('url' in message) || message.url !== location.href || lastUrl !== location.href
       || !selectedRange?.startContainer.isConnected || selectedRange.toString().trim().slice(0, MAX_SELECTION_LENGTH) !== selectedText) { respond({ ok: false }); return; }

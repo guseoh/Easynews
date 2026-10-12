@@ -50,15 +50,15 @@ test('explanation sends bounded surrounding context but never the extracted arti
   assert.equal(body.textContent, undefined);
 });
 
-test('focus and question options send current minimal context without previous answers', async () => {
+test('depth and question options send current minimal context without previous answers', async () => {
   const { requestExplanation } = load(); let body;
   const fetcher = async (_url, options) => { body = JSON.parse(options.body); return Response.json({ answer: '설명' }); };
   await requestExplanation('simple', { title: '기사', selectedText: '공실률 4.0%' }, new AbortController().signal, fetcher, undefined,
-    { depth: 'detailed', focusText: '4.0%', question: '이 비율의 뜻은?' });
-  assert.equal(body.focusText, '4.0%'); assert.equal(body.depth, 'detailed');
+    { depth: 'detailed', question: '이 비율의 뜻은?' });
+  assert.equal(body.focusText, undefined); assert.equal(body.depth, 'detailed');
   assert.equal(body.question, '이 비율의 뜻은?'); assert.equal(body.previousAnswer, undefined);
   await assert.rejects(requestExplanation('simple', { title: '', selectedText: '문장' }, new AbortController().signal,
-    async () => { assert.fail('must reject before network'); }, undefined, { focusText: '없는 용어' }), /선택 문장/);
+    async () => { assert.fail('must reject before network'); }, undefined, { question: ' ' }), /질문/);
 });
 
 test('invalidation aborts and discards an answer that arrives after a selection or page change', async () => {

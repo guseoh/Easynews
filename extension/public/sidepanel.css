@@ -115,8 +115,6 @@ main { min-width: 0; }
 .explanation-section { margin-top: 12px; }
 .reading-options { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-top: 6px; color: var(--text-muted); font-size: 11px; }
 .reading-options select { margin-left: 4px; padding: 3px 5px; border: 1px solid var(--border); border-radius: 5px; color: var(--text); background: var(--surface); }
-.reading-tools { margin-top: 6px; color: var(--text-muted); font-size: 11px; }
-.reading-tools summary { cursor: pointer; }
 .reading-form { display: grid; gap: 5px; margin: 9px 0 0; font-size: 11px; }
 .input-action { display: flex; gap: 5px; }
 .input-action input { flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); color: var(--text); font: inherit; }
@@ -166,10 +164,6 @@ main { min-width: 0; }
 .empty-state p, .empty-group { margin: 5px 0 0; font-size: 11px; line-height: 1.6; }
 .empty-group { padding: 10px 0 2px; }
 footer { margin-top: 12px; padding-top: 6px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 10px; line-height: 1.4; }
-.shortcut-help { margin-top: 10px; color: var(--text-muted); font-size: 11px; }
-.shortcut-help summary { cursor: pointer; }
-.shortcut-help dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; }
-.shortcut-help dd { margin: 0; }
 dialog { width: min(340px, calc(100vw - 32px)); max-width: 100%; padding: 19px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface-raised); color: var(--text); box-shadow: var(--shadow); }
 dialog::backdrop { background: rgb(0 0 0 / 42%); }
 dialog h2 { margin: 0 0 9px; font-size: 16px; }

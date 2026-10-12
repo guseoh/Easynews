@@ -4,7 +4,7 @@ export const MAX_EXPLAIN_TITLE = 300;
 export const MAX_EXPLAIN_ANSWER = 8_000;
 export type ExplainMode = 'simple' | 'why' | 'background';
 export interface ExplainSelection { title: string; selectedText: string; surroundingContext?: string }
-export interface ExplainOptions { depth?: 'short' | 'detailed'; focusText?: string; question?: string }
+export interface ExplainOptions { depth?: 'short' | 'detailed'; question?: string }
 
 export async function requestExplanation(
   mode: ExplainMode, selection: ExplainSelection, signal: AbortSignal, fetcher: typeof fetch = fetch, onDelta?: (text: string) => void, options: ExplainOptions = {},
@@ -12,14 +12,13 @@ export async function requestExplanation(
   if (!selection.selectedText.trim() || selection.selectedText.length > MAX_EXPLAIN_SELECTION) {
     throw new Error('설명할 문장을 1~2,000자 선택해 주세요.');
   }
-  if (options.focusText !== undefined && (!options.focusText.trim() || options.focusText.length > 120 || !selection.selectedText.includes(options.focusText.trim()))) throw new Error('현재 선택 문장에 있는 용어나 수치를 입력해 주세요.');
   if (options.question !== undefined && (!options.question.trim() || options.question.length > 300)) throw new Error('현재 문장에 대한 질문을 300자 이내로 입력해 주세요.');
   const response = await fetcher('http://127.0.0.1:3000/api/explain', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Easynews-Extension': chrome.runtime.id, ...(onDelta ? { Accept: 'application/x-ndjson' } : {}) },
     body: JSON.stringify({ mode, selectedText: selection.selectedText, articleTitle: selection.title.slice(0, MAX_EXPLAIN_TITLE),
       ...(selection.surroundingContext ? { surroundingContext: selection.surroundingContext.slice(0, 1_600) } : {}),
-      ...(options.depth ? { depth: options.depth } : {}), ...(options.focusText ? { focusText: options.focusText.trim() } : {}),
+      ...(options.depth ? { depth: options.depth } : {}),
       ...(options.question ? { question: options.question.trim() } : {}) }),
     cache: 'no-store', signal,
   });

@@ -66,21 +66,13 @@ test('captures only after user action and rejects invalid snapshots and senders'
   assert.equal(env.data['tab:1'].page.selectedText, '선택 문장');
 });
 
-test('mode shortcuts capture the active article and only notify its window panel', async () => {
-  const env = setup(); const messages = [];
-  for (const windowId of [10, 20]) env.chrome.runtime.onConnect.emit({ name: `panel:${windowId}`, sender: { id: 'test', url: env.chrome.runtime.getURL('sidepanel.html') }, onDisconnect: event(), postMessage: (message) => messages.push({ windowId, message }) });
-  env.chrome.commands.onCommand.emit('explain-why', env.tabs.get(1)); await flush();
-  assert.deepEqual(env.opened, [10]); assert.deepEqual(env.injections, [1]);
-  assert.equal(messages.length, 1); assert.equal(messages[0].windowId, 10);
-  assert.equal(messages[0].message.mode, 'why'); assert.equal(messages[0].message.tabId, 1);
-  assert.equal(env.data['tab:1'].status, 'loading');
-  await env.snapshot();
-  env.chrome.commands.onCommand.emit('explain-simple', env.tabs.get(1)); await flush();
-  assert.equal(env.data['tab:1'].status, 'ready');
-  assert.equal(messages.length, 2);
-  env.tabs.get(2).url = 'chrome://version';
-  env.chrome.commands.onCommand.emit('explain-simple', env.tabs.get(2)); await flush();
-  assert.equal(messages.length, 2);
+test('removed mode shortcuts do not open the panel or capture an article', async () => {
+  const env = setup();
+  for (const mode of ['simple', 'why', 'background']) env.chrome.commands.onCommand.emit(`explain-${mode}`, env.tabs.get(1));
+  await flush();
+  assert.deepEqual(env.opened, []);
+  assert.deepEqual(env.injections, []);
+  assert.equal(env.data['tab:1'], undefined);
 });
 
 test('closing the panel clears state and late messages cannot restore it', async () => {
